@@ -1,0 +1,3362 @@
+! -*- coding: utf-8 -*-
+      program nma
+c ----------------------------------------------------------------------
+c
+c       normal mode analysis for water molecules
+c       to three translational modes and three rotatinal modes
+c                          coded by h. tanaka      1988, 01, 08
+c                               see j.chem.phys. 87, 6070 (1987)
+c       first and second derivatives are expressed in analytical form
+c       ewald sum is not taken into account
+c ----------------------------------------------------------------------
+      implicit real*8(a-h,o-z)
+      parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
+      parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
+      parameter (nrr$=nr$*(nr$+1)/2,nr2$=2*nr$,nd2$=nd$*2)
+      parameter (ndp$=nd$*(nd$+1)/2)
+c     parameter (STDOUT=6)
+c     parameter (STDERR=0)
+      common /mt/ e(nr$),ev(nr$,nr$),vw(nd$,2),t(nr$,nr$),
+     *            ekv(nd$),ekm(nr$,nr$,np$),s(nr$,nr$)
+      common /ar/ x(lp$),y(lp$),z(lp$),
+     *            a(np$),b(np$),c(np$),d(np$),
+     *            ea(lp$),eb(lp$),ec(lp$),
+     *            xx1(np$),yy1(np$),zz1(np$),
+     *            xx2(np$),yy2(np$),zz2(np$),
+     *            xx3(np$),yy3(np$),zz3(np$),
+     *            xx4(np$),yy4(np$),zz4(np$)
+      common /br/ ax1(np$),ax2(np$),ax3(np$),ax4(np$),
+     *          ay1(np$),ay2(np$),ay3(np$),ay4(np$),
+     *          az1(np$),az2(np$),az3(np$),az4(np$),
+     *          bx1(np$),bx2(np$),bx3(np$),bx4(np$),
+     *          by1(np$),by2(np$),by3(np$),by4(np$),
+     *          cx1(np$),cx2(np$),cx3(np$),cx4(np$),
+     *          cy1(np$),cy2(np$),cy3(np$),cy4(np$),
+     *          cz1(np$),cz2(np$),cz3(np$),cz4(np$)
+      common /br/ aax1(np$),aax2(np$),aax3(np$),aax4(np$),
+     *          abx1(np$),abx2(np$),abx3(np$),abx4(np$),
+     *          acx1(np$),acx2(np$),acx3(np$),acx4(np$),
+     *          bbx1(np$),bbx2(np$),bbx3(np$),bbx4(np$),
+     *          bcx1(np$),bcx2(np$),bcx3(np$),bcx4(np$),
+     *          ccx1(np$),ccx2(np$),ccx3(np$),ccx4(np$)
+      common /br/ aay1(np$),aay2(np$),aay3(np$),aay4(np$),
+     *          aby1(np$),aby2(np$),aby3(np$),aby4(np$),
+     *          acy1(np$),acy2(np$),acy3(np$),acy4(np$),
+     *          bby1(np$),bby2(np$),bby3(np$),bby4(np$),
+     *          bcy1(np$),bcy2(np$),bcy3(np$),bcy4(np$),
+     *          ccy1(np$),ccy2(np$),ccy3(np$),ccy4(np$)
+      common /br/ aaz1(np$),aaz2(np$),aaz3(np$),aaz4(np$),
+c    *          abz1(np$),abz2(np$),abz3(np$),abz4(np$),
+     *          acz1(np$),acz2(np$),acz3(np$),acz4(np$),
+c    *          bbz1(np$),bbz2(np$),bbz3(np$),bbz4(np$),
+c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
+     *          ccz1(np$),ccz2(np$),ccz3(np$),ccz4(np$)
+      common /cr/ fdi(nd$),sd(nd$,nd$)
+      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+      common /in/ lc(np$),n,nn,n3,n6
+      data bk,anum/1.38054d-16,6.0225d+23/
+      data qq,ad1,ad2/0.535d0,6.95d+5,6.00d+2/
+      data angle,holen,colen/104.52d0,0.9572d0,0.15d0/
+      data qe/332.17752d0/
+      data uj/4.184d3/
+      data sg/1.0d-8/
+      character*5 tag
+      real*8 bx,by,bz
+      eps=2.0d-16
+      csinth = 0.7d0
+      !read(5,*) csinth
+      !read(5,*) ipot
+      ipot = %%IPOT%%
+      !read(5,*) wh,wo
+      wh = 1.0d0
+      wo = 16.0d0
+      wm = wh + wh + wo
+c     add end
+      if(ipot.eq.4) then
+      qq=0.52d0
+      ad1=6.0d+5
+      ad2=6.10d+2
+      else if (ipot.eq.2005) then
+      qq = 0.5564d0
+      eee = 0.77490376061127586d0
+      sss = 3.1589d0
+      ad1 = 4*eee*sss**12/uj
+      ad2 = 4*eee*sss**6/uj
+      end if
+      pi=4.0d0*atan(1.0d0)
+      nthree=nr$
+      qs=qq**2*qe
+      sw=sqrt(qs*uj*1.0d3/wm)/(6.0d0*pi)
+      p1=ad1/qs
+      p2=-ad2/qs
+      p3=-p1*12.0d0
+      p4=-p2*6.0d0
+      p5=-p3*13.0d0
+      p6=-p4*7.0d0
+      rangle=pi*angle/360.0d0
+      ohz=holen*cos(rangle)
+      hyl=holen*sin(rangle)
+      hzl=wo*ohz/wm
+      ol=-ohz+hzl
+      cl=colen+ol
+!      read(12) n,ncl,nstop,nrec,nav,ix,
+!     *         hh,dt,tiun,tempo,rdens
+
+      do
+         read(5,*) tag
+         if ( tag .eq. "@BOX3" ) then
+            read(5,*) bx,by,bz
+         endif
+         if ( tag .eq. "@NX3A" ) then
+            read(5,*) n
+            do i=1,n
+               read(5,*) x(i),y(i),z(i),ea(i),eb(i),ec(i)
+            enddo
+            exit
+         endif
+      enddo
+
+      rdens = n * wm / anum / (bx*by*bz*1d-24)
+      !rdens = 8 * wm / anum / (6.322e-8)**3
+      write(STDERR,*) "Density=", rdens
+      wmm=wm/anum
+      enu=qs/anum*uj*1.0d+7
+      etemp=enu/bk
+      nn=n-1
+      n3=n*3
+      n6=n3+n3
+      rix=(wo*ol*ol+2d0*wh*(hyl*hyl+hzl*hzl))/wm
+      riy=(wo*ol*ol+2d0*wh*hzl*hzl)/wm
+      riz=2d0*wh*hyl*hyl/wm
+      pn=float(n)
+      pni=1.0d0/pn
+      emu=1.0d-10*enu*anum*pni
+      emupid=emu*pn
+      dens=anum*sg*sg*sg*rdens/wm
+      vol=pn/dens
+      bxl=vol**(1.0d0/3.0d0)
+      rvol=vol*sg*sg*sg
+      if(bxl.gt.%%RCOA%%*2) then
+         rc=%%RCOA%%
+      else
+         rc=0.5d0*bxl
+      end if
+      rc2=rc*rc
+      rl=rc-2.0d0
+      rq=1.0d0/(rl-rc)**5
+      rq3=30.0d0/(rl-rc)**5
+      rq6=60.0d0/(rl-rc)**5
+      pid=2.0d0*pi
+      !write(STDERR,*) rc
+      write(STDERR,601) n
+601   format(5x,'normal mode analysis for water molecules '/
+     *          5x,'number of molecules = ',i5)
+      write(STDERR,*) "BOX", vol,bx,by,bz,bxl
+      !read(12) x,y,z,ea,eb,ec
+      !do i=1,n
+      !   read(5,*) x(i),y(i),z(i),ea(i),eb(i),ec(i)
+      !enddo
+      do 48 i=1,n
+      th=ea(i)
+      ph=eb(i)
+      ps=ec(i)
+      sina=sin(th)
+      sinb=sin(ph)
+      sinc=sin(ps)
+      cosa=cos(th)
+      cosb=cos(ph)
+      cosc=cos(ps)
+      cosap=sina*sinc
+      if(abs(sina).gt.csinth)  then
+      lc(i)=1
+      call lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
+      else
+      lc(i)=2
+      ap=acos(cosap)
+      sinap=sin(ap)
+      coscp=cosa/sinap
+      cp=acos(coscp)
+      sincp=sina*cosc/sinap
+      if(sincp.lt.0.0d0) then
+      cp=pid-cp
+      end if
+      cosbp=-(cosc*sinb+cosa*cosb*sinc)/sinap
+      bp=acos(cosbp)
+      sinbp=(cosc*cosb-cosa*sinb*sinc)/sinap
+      if(sinbp.lt.0.0d0) then
+      bp=pid-bp
+      end if
+      ea(i)=ap
+      eb(i)=bp
+      ec(i)=cp
+      call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
+      end if
+48    continue
+      write(STDERR,1122)(lc(i),i=1,n)
+1122  format(65i2)
+      do 148 i=1,n
+      th=ea(i)
+      ph=eb(i)
+      ps=ec(i)
+      sina=sin(th)
+      sinb=sin(ph)
+      sinc=sin(ps)
+      cosa=cos(th)
+      cosb=cos(ph)
+      cosc=cos(ps)
+      if(lc(i).eq.1) then
+      ev(1,1)=rix*cosc**2+riy*sinc**2
+      ev(1,2)=(rix-riy)*sina*sinc*cosc
+      ev(1,3)=0.0d0
+      ev(2,2)=(rix*sinc**2+riy*cosc**2)*sina**2+riz*cosa**2
+      ev(2,3)=riz*cosa
+      ev(3,3)=riz
+      ev(2,1)=ev(1,2)
+      ev(3,1)=ev(1,3)
+      ev(3,2)=ev(2,3)
+      else
+      ev(1,1)=riy*cosc**2+riz*sinc**2
+      ev(1,2)=(riy-riz)*sina*sinc*cosc
+      ev(1,3)=0.0d0
+      ev(2,2)=(riy*sinc**2+riz*cosc**2)*sina**2+rix*cosa**2
+      ev(2,3)=rix*cosa
+      ev(3,3)=rix
+      ev(2,1)=ev(1,2)
+      ev(3,1)=ev(1,3)
+      ev(3,2)=ev(2,3)
+      end if
+      icon=1
+      call hoqrvw(ev,nr$,nthree,e,eps,vw,icon)
+      j1=3*i-2
+      j2=j1+1
+      j3=j2+1
+      ekv(j1)=1.0d0/sqrt(e(1))
+      ekv(j2)=1.0d0/sqrt(e(2))
+      ekv(j3)=1.0d0/sqrt(e(3))
+      ekm(1,1,i)=ev(1,1)
+      ekm(2,1,i)=ev(2,1)
+      ekm(3,1,i)=ev(3,1)
+      ekm(1,2,i)=ev(1,2)
+      ekm(2,2,i)=ev(2,2)
+      ekm(3,2,i)=ev(3,2)
+      ekm(1,3,i)=ev(1,3)
+      ekm(2,3,i)=ev(2,3)
+      ekm(3,3,i)=ev(3,3)
+  148 continue
+      do 58 i=1,nd$
+      do 58 j=1,nd$
+      sd(j,i)=0.0d0
+58    continue
+      call drvtv !(rc,rc2,bxl,rl,rq,rq3,rq6,n,nn,n3)
+      ep=ep/float(n)
+      write(STDERR,*) 'energy = ',ep
+      do 777 i=1,n
+      i1=3*i-2
+      i2=i1+1
+      i3=i2+1
+      k1=n3+i1
+      k2=k1+1
+      k3=k2+1
+      do 777 j=1,n
+      j1=3*j-2
+      j2=j1+1
+      j3=j2+1
+      l1=n3+j1
+      l2=l1+1
+      l3=l2+1
+      t(1,1)=sd(l1,k1)
+      t(2,1)=sd(l2,k1)
+      t(3,1)=sd(l3,k1)
+      t(1,2)=sd(l1,k2)
+      t(2,2)=sd(l2,k2)
+      t(3,2)=sd(l3,k2)
+      t(1,3)=sd(l1,k3)
+      t(2,3)=sd(l2,k3)
+      t(3,3)=sd(l3,k3)
+      do 779 k=1,nr$
+      do 779 l=1,nr$
+      ss=0.0d0
+      do 778 m=1,nr$
+      ss=ss+t(l,m)*ekm(m,k,i)
+778   continue
+      s(l,k)=ss
+779   continue
+      do 769 k=1,nr$
+      do 769 l=1,nr$
+      ss=0.0d0
+      do 768 m=1,nr$
+      ss=ss+s(m,k)*ekm(m,l,j)
+768   continue
+      t(l,k)=ss
+769   continue
+      sd(l1,k1)=t(1,1)*ekv(j1)*ekv(i1)
+      sd(l2,k1)=t(2,1)*ekv(j2)*ekv(i1)
+      sd(l3,k1)=t(3,1)*ekv(j3)*ekv(i1)
+      sd(l1,k2)=t(1,2)*ekv(j1)*ekv(i2)
+      sd(l2,k2)=t(2,2)*ekv(j2)*ekv(i2)
+      sd(l3,k2)=t(3,2)*ekv(j3)*ekv(i2)
+      sd(l1,k3)=t(1,3)*ekv(j1)*ekv(i3)
+      sd(l2,k3)=t(2,3)*ekv(j2)*ekv(i3)
+      sd(l3,k3)=t(3,3)*ekv(j3)*ekv(i3)
+777   continue
+      do 877 i=1,n
+      i1=3*i-2
+      i2=i1+1
+      i3=i2+1
+      do 877 j=1,n
+      j1=3*j-2
+      j2=j1+1
+      j3=j2+1
+      k1=n3+j1
+      k2=k1+1
+      k3=k2+1
+      t(1,1)=sd(k1,i1)
+      t(2,1)=sd(k2,i1)
+      t(3,1)=sd(k3,i1)
+      t(1,2)=sd(k1,i2)
+      t(2,2)=sd(k2,i2)
+      t(3,2)=sd(k3,i2)
+      t(1,3)=sd(k1,i3)
+      t(2,3)=sd(k2,i3)
+      t(3,3)=sd(k3,i3)
+      do 869 k=1,nr$
+      do 869 l=1,nr$
+      ss=0.0d0
+      do 868 m=1,nr$
+      ss=ss+ekm(m,l,j)*t(m,k)
+868   continue
+      s(l,k)=ss
+869   continue
+       sd(k1,i1)=s(1,1)*ekv(j1)
+       sd(k2,i1)=s(2,1)*ekv(j2)
+       sd(k3,i1)=s(3,1)*ekv(j3)
+       sd(k1,i2)=s(1,2)*ekv(j1)
+       sd(k2,i2)=s(2,2)*ekv(j2)
+       sd(k3,i2)=s(3,2)*ekv(j3)
+       sd(k1,i3)=s(1,3)*ekv(j1)
+       sd(k2,i3)=s(2,3)*ekv(j2)
+       sd(k3,i3)=s(3,3)*ekv(j3)
+877   continue
+      do 888 i=1,n6
+      do 889 j=1,i
+      sd(j,i)=sd(i,j)
+889   continue
+888   continue
+c     *        call hoqrvw(a,ka,n,e,eps,w,ind)                         *
+c     *          a   ....given real symmetric matrix.                  *
+c     *          ka  ....given adjustable dimension of a.              *
+c     *          n   ....given order of the matrix a.                  *
+c     *          e   ....resultant eigenvalues.                        *
+c     *          eps ....given criterion for the convergence test.     *
+c     *          w   ....work area.                                    *
+c     *          ind ....given index.                                  *
+c     *             0          ....do not compute eigenvectors.        *
+c     *             1          ....compute all the eigenvectors.       *
+c     *              ....resultant condition code.                     *
+c     *             0          ....normal termination.                 *
+c     *             30000      ....parameter error.                    *
+      do i=1,n6
+         write(14,*) i,sd(1,i)
+      enddo
+      icon=1
+      call hoqrvw(sd,nd$,n6,fdi,eps,vw,icon)
+c     call dseig1(sds,n6,fdi,sd,nd$,ne,vw,icon)
+      if(icon.ne.0) then
+         write(STDERR,*) 'error  in normal mode analysis error code = '
+     $        ,icon
+         stop
+      endif
+      write(STDERR,610)
+610   format(2x,'eigen value in cm**(-1) ')
+      write(STDERR,*) "DEBUG1"
+      do 772 i=1,n6
+      if(fdi(i).gt.0.0d0) then
+      fdi(i)=sqrt(fdi(i))*sw
+      else
+      fdi(i)=-sqrt(-fdi(i))*sw
+      end if
+772   continue
+      write(STDERR,*) "DEBUG2"
+      do i=1,n6
+         write(STDOUT,*) i,fdi(i)
+      enddo
+      write(STDERR,*) "DEBUG3"
+      !rewind 12
+      !write(13) fdi,sd,lc
+      stop
+      end
+      subroutine lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
+      implicit real*8(a-h,o-z)
+      parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
+      parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
+      parameter (nrr$=nr$*(nr$+1)/2,nr2$=2*nr$,nd2$=nd$*2)
+      parameter (ndp$=nd$*(nd$+1)/2)
+      common /mt/ e(nr$),ev(nr$,nr$),vw(nd$,2),t(nr$,nr$),
+     *            ekv(nd$),ekm(nr$,nr$,np$),s(nr$,nr$)
+      common /ar/ x(lp$),y(lp$),z(lp$),
+     *            a(np$),b(np$),c(np$),d(np$),
+     *            ea(lp$),eb(lp$),ec(lp$),
+     *            xx1(np$),yy1(np$),zz1(np$),
+     *            xx2(np$),yy2(np$),zz2(np$),
+     *            xx3(np$),yy3(np$),zz3(np$),
+     *            xx4(np$),yy4(np$),zz4(np$)
+      common /br/ ax1(np$),ax2(np$),ax3(np$),ax4(np$),
+     *          ay1(np$),ay2(np$),ay3(np$),ay4(np$),
+     *          az1(np$),az2(np$),az3(np$),az4(np$),
+     *          bx1(np$),bx2(np$),bx3(np$),bx4(np$),
+     *          by1(np$),by2(np$),by3(np$),by4(np$),
+     *          cx1(np$),cx2(np$),cx3(np$),cx4(np$),
+     *          cy1(np$),cy2(np$),cy3(np$),cy4(np$),
+     *          cz1(np$),cz2(np$),cz3(np$),cz4(np$)
+      common /br/ aax1(np$),aax2(np$),aax3(np$),aax4(np$),
+     *          abx1(np$),abx2(np$),abx3(np$),abx4(np$),
+     *          acx1(np$),acx2(np$),acx3(np$),acx4(np$),
+     *          bbx1(np$),bbx2(np$),bbx3(np$),bbx4(np$),
+     *          bcx1(np$),bcx2(np$),bcx3(np$),bcx4(np$),
+     *          ccx1(np$),ccx2(np$),ccx3(np$),ccx4(np$)
+      common /br/ aay1(np$),aay2(np$),aay3(np$),aay4(np$),
+     *          aby1(np$),aby2(np$),aby3(np$),aby4(np$),
+     *          acy1(np$),acy2(np$),acy3(np$),acy4(np$),
+     *          bby1(np$),bby2(np$),bby3(np$),bby4(np$),
+     *          bcy1(np$),bcy2(np$),bcy3(np$),bcy4(np$),
+     *          ccy1(np$),ccy2(np$),ccy3(np$),ccy4(np$)
+      common /br/ aaz1(np$),aaz2(np$),aaz3(np$),aaz4(np$),
+c    *          abz1(np$),abz2(np$),abz3(np$),abz4(np$),
+     *          acz1(np$),acz2(np$),acz3(np$),acz4(np$),
+c    *          bbz1(np$),bbz2(np$),bbz3(np$),bbz4(np$),
+c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
+     *          ccz1(np$),ccz2(np$),ccz3(np$),ccz4(np$)
+      common /cr/ fdi(nd$),sd(nd$,nd$)
+      common /in/ lc(np$),n,nn,n3,n6
+      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+      sp12=-(sinc*cosb+cosa*sinb*cosc)
+      dda12=sina*sinb*cosc
+      ddb12=sinc*sinb-cosa*cosb*cosc
+      ddc12=-cosc*cosb+cosa*sinb*sinc
+      daa12=cosa*sinb*cosc
+      dab12=sina*cosb*cosc
+      dac12=-sina*sinb*sinc
+      dbb12=-sp12
+      dbc12=cosc*sinb+cosa*cosb*sinc
+      dcc12=-sp12
+      sp13=sina*sinb
+      dda13=cosa*sinb
+      ddb13=sina*cosb
+      daa13=-sp13
+      dab13=cosa*cosb
+      dbb13=-sp13
+      sp22=-sinc*sinb+cosa*cosb*cosc
+      dda22=-sina*cosb*cosc
+      ddb22=-sinc*cosb-cosa*sinb*cosc
+      ddc22=-cosc*sinb-cosa*cosb*sinc
+      daa22=-cosa*cosb*cosc
+      dab22=sina*sinb*cosc
+      dac22=sina*cosb*sinc
+      dbb22=-sp22
+      dbc22=-cosc*cosb+cosa*sinb*sinc
+      dcc22=-sp22
+      sp23=-sina*cosb
+      dda23=-cosa*cosb
+      ddb23=sina*sinb
+      daa23=-sp23
+      dab23=cosa*sinb
+      dbb23=-sp23
+      sp32=sina*cosc
+      dda32=cosa*cosc
+      ddc32=-sina*sinc
+      daa32=-sp32
+      dac32=-cosa*sinc
+      dcc32=-sp32
+      sp33=cosa
+      dda33=-sina
+      daa33=-cosa
+      sy12=sp12*hyl
+      sy22=sp22*hyl
+      sy32=sp32*hyl
+      sz13=sp13*hzl
+      sz23=sp23*hzl
+      sz33=sp33*hzl
+      xx1(i)=sy12+sz13
+      yy1(i)=sy22+sz23
+      zz1(i)=sy32+sz33
+      xx2(i)=-sy12+sz13
+      yy2(i)=-sy22+sz23
+      zz2(i)=-sy32+sz33
+      xx3(i)=sp13*ol
+      yy3(i)=sp23*ol
+      zz3(i)=sp33*ol
+      xx4(i)=sp13*cl
+      yy4(i)=sp23*cl
+      zz4(i)=sp33*cl
+      a12h=dda12*hyl
+      a22h=dda22*hyl
+      a32h=dda32*hyl
+      a13h=dda13*hzl
+      a23h=dda23*hzl
+      a33h=dda33*hzl
+      b12h=ddb12*hyl
+      b22h=ddb22*hyl
+      b13h=ddb13*hzl
+      b23h=ddb23*hzl
+      c12h=ddc12*hyl
+      c22h=ddc22*hyl
+      c32h=ddc32*hyl
+      a13c=dda13*cl
+      a23c=dda23*cl
+      a33c=dda33*cl
+      b13c=ddb13*cl
+      b23c=ddb23*cl
+      a13o=dda13*ol
+      a23o=dda23*ol
+      a33o=dda33*ol
+      b13o=ddb13*ol
+      b23o=ddb23*ol
+      aa12h=daa12*hyl
+      aa22h=daa22*hyl
+      aa32h=daa32*hyl
+      aa13h=daa13*hzl
+      aa23h=daa23*hzl
+      aa33h=daa33*hzl
+      ab12h=dab12*hyl
+      ab22h=dab22*hyl
+      ab13h=dab13*hzl
+      ab23h=dab23*hzl
+      ac12h=dac12*hyl
+      ac22h=dac22*hyl
+      ac32h=dac32*hyl
+      bb12h=dbb12*hyl
+      bb22h=dbb22*hyl
+      bb13h=dbb13*hzl
+      bb23h=dbb23*hzl
+      bc12h=dbc12*hyl
+      bc22h=dbc22*hyl
+      cc12h=dcc12*hyl
+      cc22h=dcc22*hyl
+      cc32h=dcc32*hyl
+      aa13c=daa13*cl
+      aa23c=daa23*cl
+      aa33c=daa33*cl
+      ab13c=dab13*cl
+      ab23c=dab23*cl
+      bb13c=dbb13*cl
+      bb23c=dbb23*cl
+      aa13o=daa13*ol
+      aa23o=daa23*ol
+      aa33o=daa33*ol
+      ab13o=dab13*ol
+      ab23o=dab23*ol
+      bb13o=dbb13*ol
+      bb23o=dbb23*ol
+      ax1(i)=a12h+a13h
+      ay1(i)=a22h+a23h
+      az1(i)=a32h+a33h
+      ax2(i)=-a12h+a13h
+      ay2(i)=-a22h+a23h
+      az2(i)=-a32h+a33h
+      ax3(i)=a13o
+      ay3(i)=a23o
+      az3(i)=a33o
+      ax4(i)=a13c
+      ay4(i)=a23c
+      az4(i)=a33c
+      bx1(i)=b12h+b13h
+      by1(i)=b22h+b23h
+      bx2(i)=-b12h+b13h
+      by2(i)=-b22h+b23h
+      bx3(i)=b13o
+      by3(i)=b23o
+      bx4(i)=b13c
+      by4(i)=b23c
+      cx1(i)=c12h
+      cy1(i)=c22h
+      cz1(i)=c32h
+      cx2(i)=-c12h
+      cy2(i)=-c22h
+      cz2(i)=-c32h
+      cx3(i)=0.0d0
+      cy3(i)=0.0d0
+      cz3(i)=0.0d0
+      cx4(i)=0.0d0
+      cy4(i)=0.0d0
+      cz4(i)=0.0d0
+      aax1(i)=aa12h+aa13h
+      aay1(i)=aa22h+aa23h
+      aaz1(i)=aa32h+aa33h
+      aax2(i)=-aa12h+aa13h
+      aay2(i)=-aa22h+aa23h
+      aaz2(i)=-aa32h+aa33h
+      aax3(i)=aa13o
+      aay3(i)=aa23o
+      aaz3(i)=aa33o
+      aax4(i)=aa13c
+      aay4(i)=aa23c
+      aaz4(i)=aa33c
+      bbx1(i)=bb12h+bb13h
+      bby1(i)=bb22h+bb23h
+      bbx2(i)=-bb12h+bb13h
+      bby2(i)=-bb22h+bb23h
+      bbx3(i)=bb13o
+      bby3(i)=bb23o
+      bbx4(i)=bb13c
+      bby4(i)=bb23c
+      ccx1(i)=cc12h
+      ccy1(i)=cc22h
+      ccz1(i)=cc32h
+      ccx2(i)=-cc12h
+      ccy2(i)=-cc22h
+      ccz2(i)=-cc32h
+      ccx3(i)=0.0d0
+      ccy3(i)=0.0d0
+      ccz3(i)=0.0d0
+      ccx4(i)=0.0d0
+      ccy4(i)=0.0d0
+      ccz4(i)=0.0d0
+      abx1(i)=ab12h+ab13h
+      aby1(i)=ab22h+ab23h
+      abx2(i)=-ab12h+ab13h
+      aby2(i)=-ab22h+ab23h
+      abx3(i)=ab13o
+      aby3(i)=ab23o
+      abx4(i)=ab13c
+      aby4(i)=ab23c
+      acx1(i)=ac12h
+      acy1(i)=ac22h
+      acz1(i)=ac32h
+      acx2(i)=-ac12h
+      acy2(i)=-ac22h
+      acz2(i)=-ac32h
+      acx3(i)=0.0d0
+      acy3(i)=0.0d0
+      acz3(i)=0.0d0
+      acx4(i)=0.0d0
+      acy4(i)=0.0d0
+      acz4(i)=0.0d0
+      bcx1(i)=bc12h
+      bcy1(i)=bc22h
+      bcx2(i)=-bc12h
+      bcy2(i)=-bc22h
+      bcx3(i)=0.0d0
+      bcy3(i)=0.0d0
+      bcx4(i)=0.0d0
+      bcy4(i)=0.0d0
+      return
+      end
+      subroutine lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,
+     *               hyl,hzl,ol,cl,i)
+      implicit real*8(a-h,o-z)
+      parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
+      parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
+      parameter (nrr$=nr$*(nr$+1)/2,nr2$=2*nr$,nd2$=nd$*2)
+      parameter (ndp$=nd$*(nd$+1)/2)
+      common /mt/ e(nr$),ev(nr$,nr$),vw(nd$,2),t(nr$,nr$),
+     *            ekv(nd$),ekm(nr$,nr$,np$),s(nr$,nr$)
+      common /ar/ x(lp$),y(lp$),z(lp$),
+     *            a(np$),b(np$),c(np$),d(np$),
+     *            ea(lp$),eb(lp$),ec(lp$),
+     *            xx1(np$),yy1(np$),zz1(np$),
+     *            xx2(np$),yy2(np$),zz2(np$),
+     *            xx3(np$),yy3(np$),zz3(np$),
+     *            xx4(np$),yy4(np$),zz4(np$)
+      common /br/ ax1(np$),ax2(np$),ax3(np$),ax4(np$),
+     *          ay1(np$),ay2(np$),ay3(np$),ay4(np$),
+     *          az1(np$),az2(np$),az3(np$),az4(np$),
+     *          bx1(np$),bx2(np$),bx3(np$),bx4(np$),
+     *          by1(np$),by2(np$),by3(np$),by4(np$),
+     *          cx1(np$),cx2(np$),cx3(np$),cx4(np$),
+     *          cy1(np$),cy2(np$),cy3(np$),cy4(np$),
+     *          cz1(np$),cz2(np$),cz3(np$),cz4(np$)
+      common /br/ aax1(np$),aax2(np$),aax3(np$),aax4(np$),
+     *          abx1(np$),abx2(np$),abx3(np$),abx4(np$),
+     *          acx1(np$),acx2(np$),acx3(np$),acx4(np$),
+     *          bbx1(np$),bbx2(np$),bbx3(np$),bbx4(np$),
+     *          bcx1(np$),bcx2(np$),bcx3(np$),bcx4(np$),
+     *          ccx1(np$),ccx2(np$),ccx3(np$),ccx4(np$)
+      common /br/ aay1(np$),aay2(np$),aay3(np$),aay4(np$),
+     *          aby1(np$),aby2(np$),aby3(np$),aby4(np$),
+     *          acy1(np$),acy2(np$),acy3(np$),acy4(np$),
+     *          bby1(np$),bby2(np$),bby3(np$),bby4(np$),
+     *          bcy1(np$),bcy2(np$),bcy3(np$),bcy4(np$),
+     *          ccy1(np$),ccy2(np$),ccy3(np$),ccy4(np$)
+      common /br/ aaz1(np$),aaz2(np$),aaz3(np$),aaz4(np$),
+c    *          abz1(np$),abz2(np$),abz3(np$),abz4(np$),
+     *          acz1(np$),acz2(np$),acz3(np$),acz4(np$),
+c    *          bbz1(np$),bbz2(np$),bbz3(np$),bbz4(np$),
+c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
+     *          ccz1(np$),ccz2(np$),ccz3(np$),ccz4(np$)
+      common /cr/ fdi(nd$),sd(nd$,nd$)
+      common /in/ lc(np$),n,nn,n3,n6
+      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+      sp12=coscp*cosbp-cosap*sinbp*sincp
+      dda12=sinap*sinbp*sincp
+      ddb12=-coscp*sinbp-cosap*cosbp*sincp
+      ddc12=-sincp*cosbp-cosap*sinbp*coscp
+      daa12=cosap*sinbp*sincp
+      dab12=sinap*cosbp*sincp
+      dbb12=-sp12
+      dac12=sinap*sinbp*coscp
+      dbc12=sincp*sinbp-cosap*cosbp*coscp
+      dcc12=-sp12
+      sp13=-(sincp*cosbp+cosap*sinbp*coscp)
+      dda13=sinap*sinbp*coscp
+      ddb13=sincp*sinbp-cosap*cosbp*coscp
+      ddc13=-coscp*cosbp+cosap*sinbp*sincp
+      daa13=cosap*sinbp*coscp
+      dab13=sinap*cosbp*coscp
+      dac13=-sinap*sinbp*sincp
+      dbb13=-sp13
+      dbc13=coscp*sinbp+cosap*cosbp*sincp
+      dcc13=-sp13
+      sp22=coscp*sinbp+cosap*cosbp*sincp
+      dda22=-sinap*cosbp*sincp
+      ddb22=coscp*cosbp-cosap*sinbp*sincp
+      ddc22=-sincp*sinbp+cosap*cosbp*coscp
+      daa22=-cosap*cosbp*sincp
+      dab22=sinap*sinbp*sincp
+      dac22=-sinap*cosbp*coscp
+      dbb22=-sp22
+      dcc22=-sp22
+      dbc22=-sincp*cosbp-cosap*sinbp*coscp
+      sp23=-sincp*sinbp+cosap*cosbp*coscp
+      dda23=-sinap*cosbp*coscp
+      ddb23=-sincp*cosbp-cosap*sinbp*coscp
+      ddc23=-coscp*sinbp-cosap*cosbp*sincp
+      daa23=-cosap*cosbp*coscp
+      dab23=sinap*sinbp*coscp
+      dac23=sinap*cosbp*sincp
+      dbb23=-sp23
+      dbc23=-coscp*cosbp+cosap*sinbp*sincp
+      dcc23=-sp23
+      sp32=sinap*sincp
+      dda32=cosap*sincp
+      ddc32=sinap*coscp
+      daa32=-sp32
+      dac32=cosap*coscp
+      dcc32=-sp32
+      sp33=sinap*coscp
+      dda33=cosap*coscp
+      ddc33=-sinap*sincp
+      daa33=-sp33
+      dac33=-cosap*sincp
+      dcc33=-sp33
+      sy12=sp12*hyl
+      sy22=sp22*hyl
+      sy32=sp32*hyl
+      sz13=sp13*hzl
+      sz23=sp23*hzl
+      sz33=sp33*hzl
+      xx1(i)=sy12+sz13
+      yy1(i)=sy22+sz23
+      zz1(i)=sy32+sz33
+      xx2(i)=-sy12+sz13
+      yy2(i)=-sy22+sz23
+      zz2(i)=-sy32+sz33
+      xx3(i)=sp13*ol
+      yy3(i)=sp23*ol
+      zz3(i)=sp33*ol
+      xx4(i)=sp13*cl
+      yy4(i)=sp23*cl
+      zz4(i)=sp33*cl
+      a12h=dda12*hyl
+      a22h=dda22*hyl
+      a32h=dda32*hyl
+      a13h=dda13*hzl
+      a23h=dda23*hzl
+      a33h=dda33*hzl
+      b12h=ddb12*hyl
+      b22h=ddb22*hyl
+      b13h=ddb13*hzl
+      b23h=ddb23*hzl
+      c12h=ddc12*hyl
+      c22h=ddc22*hyl
+      c32h=ddc32*hyl
+      c13h=ddc13*hzl
+      c23h=ddc23*hzl
+      c33h=ddc33*hzl
+      a13c=dda13*cl
+      a23c=dda23*cl
+      a33c=dda33*cl
+      b13c=ddb13*cl
+      b23c=ddb23*cl
+      c13c=ddc13*cl
+      c23c=ddc23*cl
+      c33c=ddc33*cl
+      a13o=dda13*ol
+      a23o=dda23*ol
+      a33o=dda33*ol
+      b13o=ddb13*ol
+      b23o=ddb23*ol
+      c13o=ddc13*ol
+      c23o=ddc23*ol
+      c33o=ddc33*ol
+      aa12h=daa12*hyl
+      aa22h=daa22*hyl
+      aa32h=daa32*hyl
+      aa13h=daa13*hzl
+      aa23h=daa23*hzl
+      aa33h=daa33*hzl
+      ab12h=dab12*hyl
+      ab22h=dab22*hyl
+      ab13h=dab13*hzl
+      ab23h=dab23*hzl
+      ac12h=dac12*hyl
+      ac22h=dac22*hyl
+      ac32h=dac32*hyl
+      ac13h=dac13*hzl
+      ac23h=dac23*hzl
+      ac33h=dac33*hzl
+      bb12h=dbb12*hyl
+      bb22h=dbb22*hyl
+      bb13h=dbb13*hzl
+      bb23h=dbb23*hzl
+      bc12h=dbc12*hyl
+      bc22h=dbc22*hyl
+      bc13h=dbc13*hzl
+      bc23h=dbc23*hzl
+      cc12h=dcc12*hyl
+      cc22h=dcc22*hyl
+      cc32h=dcc32*hyl
+      cc13h=dcc13*hzl
+      cc23h=dcc23*hzl
+      cc33h=dcc33*hzl
+      aa13c=daa13*cl
+      aa23c=daa23*cl
+      aa33c=daa33*cl
+      ab13c=dab13*cl
+      ab23c=dab23*cl
+      ac13c=dac13*cl
+      ac23c=dac23*cl
+      ac33c=dac33*cl
+      bb13c=dbb13*cl
+      bb23c=dbb23*cl
+      bc13c=dbc13*cl
+      bc23c=dbc23*cl
+      cc13c=dcc13*cl
+      cc23c=dcc23*cl
+      cc33c=dcc33*cl
+      aa13o=daa13*ol
+      aa23o=daa23*ol
+      aa33o=daa33*ol
+      ab13o=dab13*ol
+      ab23o=dab23*ol
+      ac13o=dac13*ol
+      ac23o=dac23*ol
+      ac33o=dac33*ol
+      bb13o=dbb13*ol
+      bb23o=dbb23*ol
+      bc13o=dbc13*ol
+      bc23o=dbc23*ol
+      cc13o=dcc13*ol
+      cc23o=dcc23*ol
+      cc33o=dcc33*ol
+      ax1(i)=a12h+a13h
+      ay1(i)=a22h+a23h
+      az1(i)=a32h+a33h
+      ax2(i)=-a12h+a13h
+      ay2(i)=-a22h+a23h
+      az2(i)=-a32h+a33h
+      ax3(i)=a13o
+      ay3(i)=a23o
+      az3(i)=a33o
+      ax4(i)=a13c
+      ay4(i)=a23c
+      az4(i)=a33c
+      bx1(i)=b12h+b13h
+      by1(i)=b22h+b23h
+      bx2(i)=-b12h+b13h
+      by2(i)=-b22h+b23h
+      bx3(i)=b13o
+      by3(i)=b23o
+      bx4(i)=b13c
+      by4(i)=b23c
+      cx1(i)=c12h+c13h
+      cy1(i)=c22h+c23h
+      cz1(i)=c32h+c33h
+      cx2(i)=-c12h+c13h
+      cy2(i)=-c22h+c23h
+      cz2(i)=-c32h+c33h
+      cx3(i)=c13o
+      cy3(i)=c23o
+      cz3(i)=c33o
+      cx4(i)=c13c
+      cy4(i)=c23c
+      cz4(i)=c33c
+      aax1(i)=aa12h+aa13h
+      aay1(i)=aa22h+aa23h
+      aaz1(i)=aa32h+aa33h
+      aax2(i)=-aa12h+aa13h
+      aay2(i)=-aa22h+aa23h
+      aaz2(i)=-aa32h+aa33h
+      aax3(i)=aa13o
+      aay3(i)=aa23o
+      aaz3(i)=aa33o
+      aax4(i)=aa13c
+      aay4(i)=aa23c
+      aaz4(i)=aa33c
+      bbx1(i)=bb12h+bb13h
+      bby1(i)=bb22h+bb23h
+      bbx2(i)=-bb12h+bb13h
+      bby2(i)=-bb22h+bb23h
+      bbx3(i)=bb13o
+      bby3(i)=bb23o
+      bbx4(i)=bb13c
+      bby4(i)=bb23c
+      ccx1(i)=cc12h+cc13h
+      ccy1(i)=cc22h+cc23h
+      ccz1(i)=cc32h+cc33h
+      ccx2(i)=-cc12h+cc13h
+      ccy2(i)=-cc22h+cc23h
+      ccz2(i)=-cc32h+cc33h
+      ccx3(i)=cc13o
+      ccy3(i)=cc23o
+      ccz3(i)=cc33o
+      ccx4(i)=cc13c
+      ccy4(i)=cc23c
+      ccz4(i)=cc33c
+      abx1(i)=ab12h+ab13h
+      aby1(i)=ab22h+ab23h
+      abx2(i)=-ab12h+ab13h
+      aby2(i)=-ab22h+ab23h
+      abx3(i)=ab13o
+      aby3(i)=ab23o
+      abx4(i)=ab13c
+      aby4(i)=ab23c
+      acx1(i)=ac12h+ac13h
+      acy1(i)=ac22h+ac23h
+      acz1(i)=ac32h+ac33h
+      acx2(i)=-ac12h+ac13h
+      acy2(i)=-ac22h+ac23h
+      acz2(i)=-ac32h+ac33h
+      acx3(i)=ac13o
+      acy3(i)=ac23o
+      acz3(i)=ac33o
+      acx4(i)=ac13c
+      acy4(i)=ac23c
+      acz4(i)=ac33c
+      bcx1(i)=bc12h+bc13h
+      bcy1(i)=bc22h+bc23h
+      bcx2(i)=-bc12h+bc13h
+      bcy2(i)=-bc22h+bc23h
+      bcx3(i)=bc13o
+      bcy3(i)=bc23o
+      bcx4(i)=bc13c
+      bcy4(i)=bc23c
+      return
+      end
+      subroutine drvtv
+      implicit real*8(a-h,o-z)
+      parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
+      parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
+      parameter (nrr$=nr$*(nr$+1)/2,nr2$=2*nr$,nd2$=nd$*2)
+      parameter (ndp$=nd$*(nd$+1)/2)
+      common /mt/ e(nr$),ev(nr$,nr$),vw(nd$,2),t(nr$,nr$),
+     *            ekv(nd$),ekm(nr$,nr$,np$),s(nr$,nr$)
+      common /ar/ x(lp$),y(lp$),z(lp$),
+     *            a(np$),b(np$),c(np$),d(np$),
+     *            ea(lp$),eb(lp$),ec(lp$),
+     *            xx1(np$),yy1(np$),zz1(np$),
+     *            xx2(np$),yy2(np$),zz2(np$),
+     *            xx3(np$),yy3(np$),zz3(np$),
+     *            xx4(np$),yy4(np$),zz4(np$)
+      common /br/ ax1(np$),ax2(np$),ax3(np$),ax4(np$),
+     *          ay1(np$),ay2(np$),ay3(np$),ay4(np$),
+     *          az1(np$),az2(np$),az3(np$),az4(np$),
+     *          bx1(np$),bx2(np$),bx3(np$),bx4(np$),
+     *          by1(np$),by2(np$),by3(np$),by4(np$),
+     *          cx1(np$),cx2(np$),cx3(np$),cx4(np$),
+     *          cy1(np$),cy2(np$),cy3(np$),cy4(np$),
+     *          cz1(np$),cz2(np$),cz3(np$),cz4(np$)
+      common /br/ aax1(np$),aax2(np$),aax3(np$),aax4(np$),
+     *          abx1(np$),abx2(np$),abx3(np$),abx4(np$),
+     *          acx1(np$),acx2(np$),acx3(np$),acx4(np$),
+     *          bbx1(np$),bbx2(np$),bbx3(np$),bbx4(np$),
+     *          bcx1(np$),bcx2(np$),bcx3(np$),bcx4(np$),
+     *          ccx1(np$),ccx2(np$),ccx3(np$),ccx4(np$)
+      common /br/ aay1(np$),aay2(np$),aay3(np$),aay4(np$),
+     *          aby1(np$),aby2(np$),aby3(np$),aby4(np$),
+     *          acy1(np$),acy2(np$),acy3(np$),acy4(np$),
+     *          bby1(np$),bby2(np$),bby3(np$),bby4(np$),
+     *          bcy1(np$),bcy2(np$),bcy3(np$),bcy4(np$),
+     *          ccy1(np$),ccy2(np$),ccy3(np$),ccy4(np$)
+      common /br/ aaz1(np$),aaz2(np$),aaz3(np$),aaz4(np$),
+c    *          abz1(np$),abz2(np$),abz3(np$),abz4(np$),
+     *          acz1(np$),acz2(np$),acz3(np$),acz4(np$),
+c    *          bbz1(np$),bbz2(np$),bbz3(np$),bbz4(np$),
+c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
+     *          ccz1(np$),ccz2(np$),ccz3(np$),ccz4(np$)
+      common /cr/ fdi(nd$),sd(nd$,nd$)
+      common /in/ lc(np$),n,nn,n3,n6
+      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+      ep=0.0d0
+      do 60 i=1,nn
+      xx=x(i)
+      yy=y(i)
+      zz=z(i)
+      xl1=xx1(i)
+      yl1=yy1(i)
+      zl1=zz1(i)
+      xl2=xx2(i)
+      yl2=yy2(i)
+      zl2=zz2(i)
+      xl3=xx3(i)
+      yl3=yy3(i)
+      zl3=zz3(i)
+      xl4=xx4(i)
+      yl4=yy4(i)
+      zl4=zz4(i)
+      nti1=3*i-2
+      nri1=n3+nti1
+      nri2=nri1+1
+      nri3=nri2+1
+      nti2=nti1+1
+      nti3=nti2+1
+c     write(STDOUT,*) '   rc= ',rc
+*voption novec
+      do 70 j=i+1,n
+      dx=xx-x(j)
+      dy=yy-y(j)
+      dz=zz-z(j)
+      dx = dx - dnint(dx/bx)*bx
+      dy = dy - dnint(dy/by)*by
+      dz = dz - dnint(dz/bz)*bz
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      r2=sx+sy+sz
+      if(r2.gt.rc2) goto 70
+      xk1=xx1(j)
+      yk1=yy1(j)
+      zk1=zz1(j)
+      xk2=xx2(j)
+      yk2=yy2(j)
+      zk2=zz2(j)
+      xk3=xx3(j)
+      yk3=yy3(j)
+      zk3=zz3(j)
+      xk4=xx4(j)
+      yk4=yy4(j)
+      zk4=zz4(j)
+      dx1=dx+xl1
+      dy1=dy+yl1
+      dz1=dz+zl1
+      dx2=dx+xl2
+      dy2=dy+yl2
+      dz2=dz+zl2
+      dx3=dx+xl3
+      dy3=dy+yl3
+      dz3=dz+zl3
+      dx4=dx+xl4
+      dy4=dy+yl4
+      dz4=dz+zl4
+      rr=sqrt(r2)
+      if(rr.gt.rl) then
+      rsi=1.0d0/r2
+      ri=1.0d0/rr
+      rrl=rr-rc
+      rrs=rr-rl
+      rrl2=rrl*rrl
+      rrs2=rrs*rrs
+      sf=rrl2*rrl*rq*(10.0d0*rrs2-5.0d0*rrl*rrs+rrl2)
+      df=rq3*rrl2*rrs2
+      ds=rq6*rrl*rrs*(rrl+rrs)
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      dfri=df*ri
+      sdx=dfri*dx
+      sdy=dfri*dy
+      sdz=dfri*dz
+      dsf=ds-dfri
+      dsfrsi=dsf*rsi
+      sxx=dfri+dsfrsi*sx
+      syy=dfri+dsfrsi*sy
+      szz=dfri+dsfrsi*sz
+      sxy=dsfrsi*xy
+      syz=dsfrsi*yz
+      szx=dsfrsi*zx
+      end if
+c ::::::: first and second derivatives for each site
+      dx=dx1-xk1
+      dy=dy1-yk1
+      dz=dz1-zk1
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=-rsi
+      rti=ri*rsi
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax1(i)*dx+ay1(i)*dy+az1(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax1(j)*dx+ay1(j)*dy+az1(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx1(i)*dx+by1(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx1(j)*dx+by1(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx1(i)*dx+cy1(i)*dy+cz1(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx1(j)*dx+cy1(j)*dy+cz1(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax1(i))*rti
+      dxaj=(ri3x*raj-ax1(j))*rti
+      dxbi=(ri3x*rbi-bx1(i))*rti
+      dxbj=(ri3x*rbj-bx1(j))*rti
+      dxci=(ri3x*rci-cx1(i))*rti
+      dxcj=(ri3x*rcj-cx1(j))*rti
+      dyai=(ri3y*rai-ay1(i))*rti
+      dyaj=(ri3y*raj-ay1(j))*rti
+      dybi=(ri3y*rbi-by1(i))*rti
+      dybj=(ri3y*rbj-by1(j))*rti
+      dyci=(ri3y*rci-cy1(i))*rti
+      dycj=(ri3y*rcj-cy1(j))*rti
+      dzai=(ri3z*rai-az1(i))*rti
+      dzaj=(ri3z*raj-az1(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz1(i))*rti
+      dzcj=(ri3z*rcj-cz1(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax1(i)*ax1(i)+ay1(i)*ay1(i)+az1(i)*az1(i)
+     *         +dx*aax1(i)+dy*aay1(i)+dz*aaz1(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax1(j)*ax1(j)+ay1(j)*ay1(j)+az1(j)*az1(j)
+     *         -dx*aax1(j)-dy*aay1(j)-dz*aaz1(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax1(i)*bx1(i)+ay1(i)*by1(i)
+     *         +dx*abx1(i)+dy*aby1(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax1(j)*bx1(j)+ay1(j)*by1(j)
+     *         -dx*abx1(j)-dy*aby1(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax1(i)*cx1(i)+ay1(i)*cy1(i)+az1(i)*cz1(i)
+     *         +dx*acx1(i)+dy*acy1(i)+dz*acz1(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax1(j)*cx1(j)+ay1(j)*cy1(j)+az1(j)*cz1(j)
+     *         -dx*acx1(j)-dy*acy1(j)-dz*acz1(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx1(i)*bx1(i)+by1(i)*by1(i)
+     *         +dx*bbx1(i)+dy*bby1(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx1(j)*bx1(j)+by1(j)*by1(j)
+     *         -dx*bbx1(j)-dy*bby1(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx1(i)*cx1(i)+by1(i)*cy1(i)
+     *         +dx*bcx1(i)+dy*bcy1(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx1(j)*cx1(j)+by1(j)*cy1(j)
+     *         -dx*bcx1(j)-dy*bcy1(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx1(i)*cx1(i)+cy1(i)*cy1(i)+cz1(i)*cz1(i)
+     *         +dx*ccx1(i)+dy*ccy1(i)+dz*ccz1(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx1(j)*cx1(j)+cy1(j)*cy1(j)+cz1(j)*cz1(j)
+     *         -dx*ccx1(j)-dy*ccy1(j)-dz*ccz1(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax1(i)*ax1(j)+ay1(i)*ay1(j)+az1(i)*az1(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax1(i)*bx1(j)+ay1(i)*by1(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx1(i)*ax1(j)+by1(i)*ay1(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax1(i)*cx1(j)+ay1(i)*cy1(j)+az1(i)*cz1(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx1(i)*ax1(j)+cy1(i)*ay1(j)+cz1(i)*az1(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx1(i)*bx1(j)+by1(i)*by1(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx1(i)*cx1(j)+by1(i)*cy1(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx1(i)*bx1(j)+cy1(i)*by1(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx1(i)*cx1(j)+cy1(i)*cy1(j)+cz1(i)*cz1(j))
+     *    +rti3*rci*rcj
+      fdx=ddx
+      fdy=ddy
+      fdz=ddz
+      fdai=ddai
+      fdbi=ddbi
+      fdci=ddci
+      fdaj=ddaj
+      fdbj=ddbj
+      fdcj=ddcj
+      sdxx=dxx
+      sdyy=dyy
+      sdzz=dzz
+      sdxy=dxy
+      sdyz=dyz
+      sdzx=dzx
+      sdxai=dxai
+      sdyai=dyai
+      sdzai=dzai
+      sdxbi=dxbi
+      sdybi=dybi
+      sdzbi=dzbi
+      sdxci=dxci
+      sdyci=dyci
+      sdzci=dzci
+      sdxaj=dxaj
+      sdyaj=dyaj
+      sdzaj=dzaj
+      sdxbj=dxbj
+      sdybj=dybj
+      sdzbj=dzbj
+      sdxcj=dxcj
+      sdycj=dycj
+      sdzcj=dzcj
+      sdaai=daai
+      sdabi=dabi
+      sdaci=daci
+      sdbbi=dbbi
+      sdbci=dbci
+      sdcci=dcci
+      sdaaj=daaj
+      sdabj=dabj
+      sdacj=dacj
+      sdbbj=dbbj
+      sdbcj=dbcj
+      sdccj=dccj
+      sdaak=daak
+      sdabk=dabk
+      sdbak=dbak
+      sdack=dack
+      sdcak=dcak
+      sdbbk=dbbk
+      sdbck=dbck
+      sdcbk=dcbk
+      sdcck=dcck
+      epi=ri
+c ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx1-xk2
+      dy=dy1-yk2
+      dz=dz1-zk2
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=-rsi
+      rti=ri*rsi
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax1(i)*dx+ay1(i)*dy+az1(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax2(j)*dx+ay2(j)*dy+az2(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx1(i)*dx+by1(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx2(j)*dx+by2(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx1(i)*dx+cy1(i)*dy+cz1(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx2(j)*dx+cy2(j)*dy+cz2(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax1(i))*rti
+      dxaj=(ri3x*raj-ax2(j))*rti
+      dxbi=(ri3x*rbi-bx1(i))*rti
+      dxbj=(ri3x*rbj-bx2(j))*rti
+      dxci=(ri3x*rci-cx1(i))*rti
+      dxcj=(ri3x*rcj-cx2(j))*rti
+      dyai=(ri3y*rai-ay1(i))*rti
+      dyaj=(ri3y*raj-ay2(j))*rti
+      dybi=(ri3y*rbi-by1(i))*rti
+      dybj=(ri3y*rbj-by2(j))*rti
+      dyci=(ri3y*rci-cy1(i))*rti
+      dycj=(ri3y*rcj-cy2(j))*rti
+      dzai=(ri3z*rai-az1(i))*rti
+      dzaj=(ri3z*raj-az2(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz1(i))*rti
+      dzcj=(ri3z*rcj-cz2(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax1(i)*ax1(i)+ay1(i)*ay1(i)+az1(i)*az1(i)
+     *         +dx*aax1(i)+dy*aay1(i)+dz*aaz1(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax2(j)*ax2(j)+ay2(j)*ay2(j)+az2(j)*az2(j)
+     *         -dx*aax2(j)-dy*aay2(j)-dz*aaz2(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax1(i)*bx1(i)+ay1(i)*by1(i)
+     *         +dx*abx1(i)+dy*aby1(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax2(j)*bx2(j)+ay2(j)*by2(j)
+     *         -dx*abx2(j)-dy*aby2(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax1(i)*cx1(i)+ay1(i)*cy1(i)+az1(i)*cz1(i)
+     *         +dx*acx1(i)+dy*acy1(i)+dz*acz1(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax2(j)*cx2(j)+ay2(j)*cy2(j)+az2(j)*cz2(j)
+     *         -dx*acx2(j)-dy*acy2(j)-dz*acz2(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx1(i)*bx1(i)+by1(i)*by1(i)
+     *         +dx*bbx1(i)+dy*bby1(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx2(j)*bx2(j)+by2(j)*by2(j)
+     *         -dx*bbx2(j)-dy*bby2(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx1(i)*cx1(i)+by1(i)*cy1(i)
+     *         +dx*bcx1(i)+dy*bcy1(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx2(j)*cx2(j)+by2(j)*cy2(j)
+     *         -dx*bcx2(j)-dy*bcy2(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx1(i)*cx1(i)+cy1(i)*cy1(i)+cz1(i)*cz1(i)
+     *         +dx*ccx1(i)+dy*ccy1(i)+dz*ccz1(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx2(j)*cx2(j)+cy2(j)*cy2(j)+cz2(j)*cz2(j)
+     *         -dx*ccx2(j)-dy*ccy2(j)-dz*ccz2(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax1(i)*ax2(j)+ay1(i)*ay2(j)+az1(i)*az2(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax1(i)*bx2(j)+ay1(i)*by2(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx1(i)*ax2(j)+by1(i)*ay2(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax1(i)*cx2(j)+ay1(i)*cy2(j)+az1(i)*cz2(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx1(i)*ax2(j)+cy1(i)*ay2(j)+cz1(i)*az2(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx1(i)*bx2(j)+by1(i)*by2(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx1(i)*cx2(j)+by1(i)*cy2(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx1(i)*bx2(j)+cy1(i)*by2(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx1(i)*cx2(j)+cy1(i)*cy2(j)+cz1(i)*cz2(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi+ri
+c ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx2-xk1
+      dy=dy2-yk1
+      dz=dz2-zk1
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=-rsi
+      rti=ri*rsi
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax2(i)*dx+ay2(i)*dy+az2(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax1(j)*dx+ay1(j)*dy+az1(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx2(i)*dx+by2(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx1(j)*dx+by1(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx2(i)*dx+cy2(i)*dy+cz2(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx1(j)*dx+cy1(j)*dy+cz1(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax2(i))*rti
+      dxaj=(ri3x*raj-ax1(j))*rti
+      dxbi=(ri3x*rbi-bx2(i))*rti
+      dxbj=(ri3x*rbj-bx1(j))*rti
+      dxci=(ri3x*rci-cx2(i))*rti
+      dxcj=(ri3x*rcj-cx1(j))*rti
+      dyai=(ri3y*rai-ay2(i))*rti
+      dyaj=(ri3y*raj-ay1(j))*rti
+      dybi=(ri3y*rbi-by2(i))*rti
+      dybj=(ri3y*rbj-by1(j))*rti
+      dyci=(ri3y*rci-cy2(i))*rti
+      dycj=(ri3y*rcj-cy1(j))*rti
+      dzai=(ri3z*rai-az2(i))*rti
+      dzaj=(ri3z*raj-az1(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz2(i))*rti
+      dzcj=(ri3z*rcj-cz1(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax2(i)*ax2(i)+ay2(i)*ay2(i)+az2(i)*az2(i)
+     *         +dx*aax2(i)+dy*aay2(i)+dz*aaz2(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax1(j)*ax1(j)+ay1(j)*ay1(j)+az1(j)*az1(j)
+     *         -dx*aax1(j)-dy*aay1(j)-dz*aaz1(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax2(i)*bx2(i)+ay2(i)*by2(i)
+     *         +dx*abx2(i)+dy*aby2(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax1(j)*bx1(j)+ay1(j)*by1(j)
+     *         -dx*abx1(j)-dy*aby1(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax2(i)*cx2(i)+ay2(i)*cy2(i)+az2(i)*cz2(i)
+     *         +dx*acx2(i)+dy*acy2(i)+dz*acz2(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax1(j)*cx1(j)+ay1(j)*cy1(j)+az1(j)*cz1(j)
+     *         -dx*acx1(j)-dy*acy1(j)-dz*acz1(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx2(i)*bx2(i)+by2(i)*by2(i)
+     *         +dx*bbx2(i)+dy*bby2(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx1(j)*bx1(j)+by1(j)*by1(j)
+     *         -dx*bbx1(j)-dy*bby1(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx2(i)*cx2(i)+by2(i)*cy2(i)
+     *         +dx*bcx2(i)+dy*bcy2(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx1(j)*cx1(j)+by1(j)*cy1(j)
+     *         -dx*bcx1(j)-dy*bcy1(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx2(i)*cx2(i)+cy2(i)*cy2(i)+cz2(i)*cz2(i)
+     *         +dx*ccx2(i)+dy*ccy2(i)+dz*ccz2(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx1(j)*cx1(j)+cy1(j)*cy1(j)+cz1(j)*cz1(j)
+     *         -dx*ccx1(j)-dy*ccy1(j)-dz*ccz1(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax2(i)*ax1(j)+ay2(i)*ay1(j)+az2(i)*az1(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax2(i)*bx1(j)+ay2(i)*by1(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx2(i)*ax1(j)+by2(i)*ay1(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax2(i)*cx1(j)+ay2(i)*cy1(j)+az2(i)*cz1(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx2(i)*ax1(j)+cy2(i)*ay1(j)+cz2(i)*az1(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx2(i)*bx1(j)+by2(i)*by1(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx2(i)*cx1(j)+by2(i)*cy1(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx2(i)*bx1(j)+cy2(i)*by1(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx2(i)*cx1(j)+cy2(i)*cy1(j)+cz2(i)*cz1(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi+ri
+c ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx2-xk2
+      dy=dy2-yk2
+      dz=dz2-zk2
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=-rsi
+      rti=ri*rsi
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax2(i)*dx+ay2(i)*dy+az2(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax2(j)*dx+ay2(j)*dy+az2(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx2(i)*dx+by2(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx2(j)*dx+by2(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx2(i)*dx+cy2(i)*dy+cz2(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx2(j)*dx+cy2(j)*dy+cz2(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax2(i))*rti
+      dxaj=(ri3x*raj-ax2(j))*rti
+      dxbi=(ri3x*rbi-bx2(i))*rti
+      dxbj=(ri3x*rbj-bx2(j))*rti
+      dxci=(ri3x*rci-cx2(i))*rti
+      dxcj=(ri3x*rcj-cx2(j))*rti
+      dyai=(ri3y*rai-ay2(i))*rti
+      dyaj=(ri3y*raj-ay2(j))*rti
+      dybi=(ri3y*rbi-by2(i))*rti
+      dybj=(ri3y*rbj-by2(j))*rti
+      dyci=(ri3y*rci-cy2(i))*rti
+      dycj=(ri3y*rcj-cy2(j))*rti
+      dzai=(ri3z*rai-az2(i))*rti
+      dzaj=(ri3z*raj-az2(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz2(i))*rti
+      dzcj=(ri3z*rcj-cz2(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax2(i)*ax2(i)+ay2(i)*ay2(i)+az2(i)*az2(i)
+     *         +dx*aax2(i)+dy*aay2(i)+dz*aaz2(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax2(j)*ax2(j)+ay2(j)*ay2(j)+az2(j)*az2(j)
+     *         -dx*aax2(j)-dy*aay2(j)-dz*aaz2(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax2(i)*bx2(i)+ay2(i)*by2(i)
+     *         +dx*abx2(i)+dy*aby2(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax2(j)*bx2(j)+ay2(j)*by2(j)
+     *         -dx*abx2(j)-dy*aby2(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax2(i)*cx2(i)+ay2(i)*cy2(i)+az2(i)*cz2(i)
+     *         +dx*acx2(i)+dy*acy2(i)+dz*acz2(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax2(j)*cx2(j)+ay2(j)*cy2(j)+az2(j)*cz2(j)
+     *         -dx*acx2(j)-dy*acy2(j)-dz*acz2(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx2(i)*bx2(i)+by2(i)*by2(i)
+     *         +dx*bbx2(i)+dy*bby2(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx2(j)*bx2(j)+by2(j)*by2(j)
+     *         -dx*bbx2(j)-dy*bby2(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx2(i)*cx2(i)+by2(i)*cy2(i)
+     *         +dx*bcx2(i)+dy*bcy2(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx2(j)*cx2(j)+by2(j)*cy2(j)
+     *         -dx*bcx2(j)-dy*bcy2(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx2(i)*cx2(i)+cy2(i)*cy2(i)+cz2(i)*cz2(i)
+     *         +dx*ccx2(i)+dy*ccy2(i)+dz*ccz2(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx2(j)*cx2(j)+cy2(j)*cy2(j)+cz2(j)*cz2(j)
+     *         -dx*ccx2(j)-dy*ccy2(j)-dz*ccz2(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax2(i)*ax2(j)+ay2(i)*ay2(j)+az2(i)*az2(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax2(i)*bx2(j)+ay2(i)*by2(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx2(i)*ax2(j)+by2(i)*ay2(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax2(i)*cx2(j)+ay2(i)*cy2(j)+az2(i)*cz2(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx2(i)*ax2(j)+cy2(i)*ay2(j)+cz2(i)*az2(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx2(i)*bx2(j)+by2(i)*by2(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx2(i)*cx2(j)+by2(i)*cy2(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx2(i)*bx2(j)+cy2(i)*by2(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx2(i)*cx2(j)+cy2(i)*cy2(j)+cz2(i)*cz2(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi+ri
+c ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx1-xk4
+      dy=dy1-yk4
+      dz=dz1-zk4
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=2.0d0*rsi
+      rti=-ri*rsim
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax1(i)*dx+ay1(i)*dy+az1(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax4(j)*dx+ay4(j)*dy+az4(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx1(i)*dx+by1(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx4(j)*dx+by4(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx1(i)*dx+cy1(i)*dy+cz1(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx4(j)*dx+cy4(j)*dy+cz4(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax1(i))*rti
+      dxaj=(ri3x*raj-ax4(j))*rti
+      dxbi=(ri3x*rbi-bx1(i))*rti
+      dxbj=(ri3x*rbj-bx4(j))*rti
+      dxci=(ri3x*rci-cx1(i))*rti
+      dxcj=(ri3x*rcj-cx4(j))*rti
+      dyai=(ri3y*rai-ay1(i))*rti
+      dyaj=(ri3y*raj-ay4(j))*rti
+      dybi=(ri3y*rbi-by1(i))*rti
+      dybj=(ri3y*rbj-by4(j))*rti
+      dyci=(ri3y*rci-cy1(i))*rti
+      dycj=(ri3y*rcj-cy4(j))*rti
+      dzai=(ri3z*rai-az1(i))*rti
+      dzaj=(ri3z*raj-az4(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz1(i))*rti
+      dzcj=(ri3z*rcj-cz4(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax1(i)*ax1(i)+ay1(i)*ay1(i)+az1(i)*az1(i)
+     *         +dx*aax1(i)+dy*aay1(i)+dz*aaz1(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax4(j)*ax4(j)+ay4(j)*ay4(j)+az4(j)*az4(j)
+     *         -dx*aax4(j)-dy*aay4(j)-dz*aaz4(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax1(i)*bx1(i)+ay1(i)*by1(i)
+     *         +dx*abx1(i)+dy*aby1(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax4(j)*bx4(j)+ay4(j)*by4(j)
+     *         -dx*abx4(j)-dy*aby4(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax1(i)*cx1(i)+ay1(i)*cy1(i)+az1(i)*cz1(i)
+     *         +dx*acx1(i)+dy*acy1(i)+dz*acz1(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax4(j)*cx4(j)+ay4(j)*cy4(j)+az4(j)*cz4(j)
+     *         -dx*acx4(j)-dy*acy4(j)-dz*acz4(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx1(i)*bx1(i)+by1(i)*by1(i)
+     *         +dx*bbx1(i)+dy*bby1(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx4(j)*bx4(j)+by4(j)*by4(j)
+     *         -dx*bbx4(j)-dy*bby4(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx1(i)*cx1(i)+by1(i)*cy1(i)
+     *         +dx*bcx1(i)+dy*bcy1(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx4(j)*cx4(j)+by4(j)*cy4(j)
+     *         -dx*bcx4(j)-dy*bcy4(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx1(i)*cx1(i)+cy1(i)*cy1(i)+cz1(i)*cz1(i)
+     *         +dx*ccx1(i)+dy*ccy1(i)+dz*ccz1(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx4(j)*cx4(j)+cy4(j)*cy4(j)+cz4(j)*cz4(j)
+     *         -dx*ccx4(j)-dy*ccy4(j)-dz*ccz4(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax1(i)*ax4(j)+ay1(i)*ay4(j)+az1(i)*az4(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax1(i)*bx4(j)+ay1(i)*by4(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx1(i)*ax4(j)+by1(i)*ay4(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax1(i)*cx4(j)+ay1(i)*cy4(j)+az1(i)*cz4(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx1(i)*ax4(j)+cy1(i)*ay4(j)+cz1(i)*az4(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx1(i)*bx4(j)+by1(i)*by4(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx1(i)*cx4(j)+by1(i)*cy4(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx1(i)*bx4(j)+cy1(i)*by4(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx1(i)*cx4(j)+cy1(i)*cy4(j)+cz1(i)*cz4(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi-2.0d0*ri
+c ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx2-xk4
+      dy=dy2-yk4
+      dz=dz2-zk4
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=2.0d0*rsi
+      rti=-ri*rsim
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax2(i)*dx+ay2(i)*dy+az2(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax4(j)*dx+ay4(j)*dy+az4(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx2(i)*dx+by2(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx4(j)*dx+by4(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx2(i)*dx+cy2(i)*dy+cz2(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx4(j)*dx+cy4(j)*dy+cz4(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax2(i))*rti
+      dxaj=(ri3x*raj-ax4(j))*rti
+      dxbi=(ri3x*rbi-bx2(i))*rti
+      dxbj=(ri3x*rbj-bx4(j))*rti
+      dxci=(ri3x*rci-cx2(i))*rti
+      dxcj=(ri3x*rcj-cx4(j))*rti
+      dyai=(ri3y*rai-ay2(i))*rti
+      dyaj=(ri3y*raj-ay4(j))*rti
+      dybi=(ri3y*rbi-by2(i))*rti
+      dybj=(ri3y*rbj-by4(j))*rti
+      dyci=(ri3y*rci-cy2(i))*rti
+      dycj=(ri3y*rcj-cy4(j))*rti
+      dzai=(ri3z*rai-az2(i))*rti
+      dzaj=(ri3z*raj-az4(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz2(i))*rti
+      dzcj=(ri3z*rcj-cz4(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax2(i)*ax2(i)+ay2(i)*ay2(i)+az2(i)*az2(i)
+     *         +dx*aax2(i)+dy*aay2(i)+dz*aaz2(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax4(j)*ax4(j)+ay4(j)*ay4(j)+az4(j)*az4(j)
+     *         -dx*aax4(j)-dy*aay4(j)-dz*aaz4(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax2(i)*bx2(i)+ay2(i)*by2(i)
+     *         +dx*abx2(i)+dy*aby2(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax4(j)*bx4(j)+ay4(j)*by4(j)
+     *         -dx*abx4(j)-dy*aby4(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax2(i)*cx2(i)+ay2(i)*cy2(i)+az2(i)*cz2(i)
+     *         +dx*acx2(i)+dy*acy2(i)+dz*acz2(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax4(j)*cx4(j)+ay4(j)*cy4(j)+az4(j)*cz4(j)
+     *         -dx*acx4(j)-dy*acy4(j)-dz*acz4(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx2(i)*bx2(i)+by2(i)*by2(i)
+     *         +dx*bbx2(i)+dy*bby2(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx4(j)*bx4(j)+by4(j)*by4(j)
+     *         -dx*bbx4(j)-dy*bby4(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx2(i)*cx2(i)+by2(i)*cy2(i)
+     *         +dx*bcx2(i)+dy*bcy2(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx4(j)*cx4(j)+by4(j)*cy4(j)
+     *         -dx*bcx4(j)-dy*bcy4(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx2(i)*cx2(i)+cy2(i)*cy2(i)+cz2(i)*cz2(i)
+     *         +dx*ccx2(i)+dy*ccy2(i)+dz*ccz2(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx4(j)*cx4(j)+cy4(j)*cy4(j)+cz4(j)*cz4(j)
+     *         -dx*ccx4(j)-dy*ccy4(j)-dz*ccz4(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax2(i)*ax4(j)+ay2(i)*ay4(j)+az2(i)*az4(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax2(i)*bx4(j)+ay2(i)*by4(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx2(i)*ax4(j)+by2(i)*ay4(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax2(i)*cx4(j)+ay2(i)*cy4(j)+az2(i)*cz4(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx2(i)*ax4(j)+cy2(i)*ay4(j)+cz2(i)*az4(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx2(i)*bx4(j)+by2(i)*by4(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx2(i)*cx4(j)+by2(i)*cy4(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx2(i)*bx4(j)+cy2(i)*by4(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx2(i)*cx4(j)+cy2(i)*cy4(j)+cz2(i)*cz4(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi-2.0d0*ri
+c ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx4-xk1
+      dy=dy4-yk1
+      dz=dz4-zk1
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=2.0d0*rsi
+      rti=-ri*rsim
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax4(i)*dx+ay4(i)*dy+az4(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax1(j)*dx+ay1(j)*dy+az1(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx4(i)*dx+by4(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx1(j)*dx+by1(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx4(i)*dx+cy4(i)*dy+cz4(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx1(j)*dx+cy1(j)*dy+cz1(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax4(i))*rti
+      dxaj=(ri3x*raj-ax1(j))*rti
+      dxbi=(ri3x*rbi-bx4(i))*rti
+      dxbj=(ri3x*rbj-bx1(j))*rti
+      dxci=(ri3x*rci-cx4(i))*rti
+      dxcj=(ri3x*rcj-cx1(j))*rti
+      dyai=(ri3y*rai-ay4(i))*rti
+      dyaj=(ri3y*raj-ay1(j))*rti
+      dybi=(ri3y*rbi-by4(i))*rti
+      dybj=(ri3y*rbj-by1(j))*rti
+      dyci=(ri3y*rci-cy4(i))*rti
+      dycj=(ri3y*rcj-cy1(j))*rti
+      dzai=(ri3z*rai-az4(i))*rti
+      dzaj=(ri3z*raj-az1(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz4(i))*rti
+      dzcj=(ri3z*rcj-cz1(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax4(i)*ax4(i)+ay4(i)*ay4(i)+az4(i)*az4(i)
+     *         +dx*aax4(i)+dy*aay4(i)+dz*aaz4(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax1(j)*ax1(j)+ay1(j)*ay1(j)+az1(j)*az1(j)
+     *         -dx*aax1(j)-dy*aay1(j)-dz*aaz1(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax4(i)*bx4(i)+ay4(i)*by4(i)
+     *         +dx*abx4(i)+dy*aby4(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax1(j)*bx1(j)+ay1(j)*by1(j)
+     *         -dx*abx1(j)-dy*aby1(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax4(i)*cx4(i)+ay4(i)*cy4(i)+az4(i)*cz4(i)
+     *         +dx*acx4(i)+dy*acy4(i)+dz*acz4(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax1(j)*cx1(j)+ay1(j)*cy1(j)+az1(j)*cz1(j)
+     *         -dx*acx1(j)-dy*acy1(j)-dz*acz1(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx4(i)*bx4(i)+by4(i)*by4(i)
+     *         +dx*bbx4(i)+dy*bby4(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx1(j)*bx1(j)+by1(j)*by1(j)
+     *         -dx*bbx1(j)-dy*bby1(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx4(i)*cx4(i)+by4(i)*cy4(i)
+     *         +dx*bcx4(i)+dy*bcy4(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx1(j)*cx1(j)+by1(j)*cy1(j)
+     *         -dx*bcx1(j)-dy*bcy1(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx4(i)*cx4(i)+cy4(i)*cy4(i)+cz4(i)*cz4(i)
+     *         +dx*ccx4(i)+dy*ccy4(i)+dz*ccz4(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx1(j)*cx1(j)+cy1(j)*cy1(j)+cz1(j)*cz1(j)
+     *         -dx*ccx1(j)-dy*ccy1(j)-dz*ccz1(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax4(i)*ax1(j)+ay4(i)*ay1(j)+az4(i)*az1(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax4(i)*bx1(j)+ay4(i)*by1(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx4(i)*ax1(j)+by4(i)*ay1(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax4(i)*cx1(j)+ay4(i)*cy1(j)+az4(i)*cz1(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx4(i)*ax1(j)+cy4(i)*ay1(j)+cz4(i)*az1(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx4(i)*bx1(j)+by4(i)*by1(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx4(i)*cx1(j)+by4(i)*cy1(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx4(i)*bx1(j)+cy4(i)*by1(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx4(i)*cx1(j)+cy4(i)*cy1(j)+cz4(i)*cz1(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi-2.0d0*ri
+c ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx4-xk2
+      dy=dy4-yk2
+      dz=dz4-zk2
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=2.0d0*rsi
+      rti=-ri*rsim
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax4(i)*dx+ay4(i)*dy+az4(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax2(j)*dx+ay2(j)*dy+az2(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx4(i)*dx+by4(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx2(j)*dx+by2(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx4(i)*dx+cy4(i)*dy+cz4(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx2(j)*dx+cy2(j)*dy+cz2(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax4(i))*rti
+      dxaj=(ri3x*raj-ax2(j))*rti
+      dxbi=(ri3x*rbi-bx4(i))*rti
+      dxbj=(ri3x*rbj-bx2(j))*rti
+      dxci=(ri3x*rci-cx4(i))*rti
+      dxcj=(ri3x*rcj-cx2(j))*rti
+      dyai=(ri3y*rai-ay4(i))*rti
+      dyaj=(ri3y*raj-ay2(j))*rti
+      dybi=(ri3y*rbi-by4(i))*rti
+      dybj=(ri3y*rbj-by2(j))*rti
+      dyci=(ri3y*rci-cy4(i))*rti
+      dycj=(ri3y*rcj-cy2(j))*rti
+      dzai=(ri3z*rai-az4(i))*rti
+      dzaj=(ri3z*raj-az2(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz4(i))*rti
+      dzcj=(ri3z*rcj-cz2(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax4(i)*ax4(i)+ay4(i)*ay4(i)+az4(i)*az4(i)
+     *         +dx*aax4(i)+dy*aay4(i)+dz*aaz4(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax2(j)*ax2(j)+ay2(j)*ay2(j)+az2(j)*az2(j)
+     *         -dx*aax2(j)-dy*aay2(j)-dz*aaz2(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax4(i)*bx4(i)+ay4(i)*by4(i)
+     *         +dx*abx4(i)+dy*aby4(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax2(j)*bx2(j)+ay2(j)*by2(j)
+     *         -dx*abx2(j)-dy*aby2(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax4(i)*cx4(i)+ay4(i)*cy4(i)+az4(i)*cz4(i)
+     *         +dx*acx4(i)+dy*acy4(i)+dz*acz4(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax2(j)*cx2(j)+ay2(j)*cy2(j)+az2(j)*cz2(j)
+     *         -dx*acx2(j)-dy*acy2(j)-dz*acz2(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx4(i)*bx4(i)+by4(i)*by4(i)
+     *         +dx*bbx4(i)+dy*bby4(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx2(j)*bx2(j)+by2(j)*by2(j)
+     *         -dx*bbx2(j)-dy*bby2(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx4(i)*cx4(i)+by4(i)*cy4(i)
+     *         +dx*bcx4(i)+dy*bcy4(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx2(j)*cx2(j)+by2(j)*cy2(j)
+     *         -dx*bcx2(j)-dy*bcy2(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx4(i)*cx4(i)+cy4(i)*cy4(i)+cz4(i)*cz4(i)
+     *         +dx*ccx4(i)+dy*ccy4(i)+dz*ccz4(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx2(j)*cx2(j)+cy2(j)*cy2(j)+cz2(j)*cz2(j)
+     *         -dx*ccx2(j)-dy*ccy2(j)-dz*ccz2(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax4(i)*ax2(j)+ay4(i)*ay2(j)+az4(i)*az2(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax4(i)*bx2(j)+ay4(i)*by2(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx4(i)*ax2(j)+by4(i)*ay2(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax4(i)*cx2(j)+ay4(i)*cy2(j)+az4(i)*cz2(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx4(i)*ax2(j)+cy4(i)*ay2(j)+cz4(i)*az2(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx4(i)*bx2(j)+by4(i)*by2(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx4(i)*cx2(j)+by4(i)*cy2(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx4(i)*bx2(j)+cy4(i)*by2(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx4(i)*cx2(j)+cy4(i)*cy2(j)+cz4(i)*cz2(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi-2.0d0*ri
+c ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx4-xk4
+      dy=dy4-yk4
+      dz=dz4-zk4
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rsim=-4.0d0*rsi
+      rti=-ri*rsim
+      rfi=rsi*rti
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      rtim=-rti
+      ddx=rtim*dx
+      ddy=rtim*dy
+      ddz=rtim*dz
+      rai=ri*(ax4(i)*dx+ay4(i)*dy+az4(i)*dz)
+      ddai=rsim*rai
+      raj=ri*(ax4(j)*dx+ay4(j)*dy+az4(j)*dz)
+      ddaj=rsim*raj
+      rbi=ri*(bx4(i)*dx+by4(i)*dy)
+      ddbi=rsim*rbi
+      rbj=ri*(bx4(j)*dx+by4(j)*dy)
+      ddbj=rsim*rbj
+      rci=ri*(cx4(i)*dx+cy4(i)*dy+cz4(i)*dz)
+      ddci=rsim*rci
+      rcj=ri*(cx4(j)*dx+cy4(j)*dy+cz4(j)*dz)
+      ddcj=rsim*rcj
+      rfi3=rfi*3.0d0
+      dxx=rfi3*sx+rtim
+      dyy=rfi3*sy+rtim
+      dzz=rfi3*sz+rtim
+      dxy=rfi3*xy
+      dyz=rfi3*yz
+      dzx=rfi3*zx
+      ri3=3.0d0*ri
+      ri3x=dx*ri3
+      ri3y=dy*ri3
+      ri3z=dz*ri3
+      dxai=(ri3x*rai-ax4(i))*rti
+      dxaj=(ri3x*raj-ax4(j))*rti
+      dxbi=(ri3x*rbi-bx4(i))*rti
+      dxbj=(ri3x*rbj-bx4(j))*rti
+      dxci=(ri3x*rci-cx4(i))*rti
+      dxcj=(ri3x*rcj-cx4(j))*rti
+      dyai=(ri3y*rai-ay4(i))*rti
+      dyaj=(ri3y*raj-ay4(j))*rti
+      dybi=(ri3y*rbi-by4(i))*rti
+      dybj=(ri3y*rbj-by4(j))*rti
+      dyci=(ri3y*rci-cy4(i))*rti
+      dycj=(ri3y*rcj-cy4(j))*rti
+      dzai=(ri3z*rai-az4(i))*rti
+      dzaj=(ri3z*raj-az4(j))*rti
+      dzbi=ri3z*rbi*rti
+      dzbj=ri3z*rbj*rti
+      dzci=(ri3z*rci-cz4(i))*rti
+      dzcj=(ri3z*rcj-cz4(j))*rti
+      rti3=3.0d0*rti
+      daai=rtim*(ax4(i)*ax4(i)+ay4(i)*ay4(i)+az4(i)*az4(i)
+     *         +dx*aax4(i)+dy*aay4(i)+dz*aaz4(i))
+     *    +rti3*rai*rai
+      daaj=rtim*(ax4(j)*ax4(j)+ay4(j)*ay4(j)+az4(j)*az4(j)
+     *         -dx*aax4(j)-dy*aay4(j)-dz*aaz4(j))
+     *    +rti3*raj*raj
+      dabi=rtim*(ax4(i)*bx4(i)+ay4(i)*by4(i)
+     *         +dx*abx4(i)+dy*aby4(i))
+     *    +rti3*rai*rbi
+      dabj=rtim*(ax4(j)*bx4(j)+ay4(j)*by4(j)
+     *         -dx*abx4(j)-dy*aby4(j))
+     *    +rti3*raj*rbj
+      daci=rtim*(ax4(i)*cx4(i)+ay4(i)*cy4(i)+az4(i)*cz4(i)
+     *         +dx*acx4(i)+dy*acy4(i)+dz*acz4(i))
+     *    +rti3*rai*rci
+      dacj=rtim*(ax4(j)*cx4(j)+ay4(j)*cy4(j)+az4(j)*cz4(j)
+     *         -dx*acx4(j)-dy*acy4(j)-dz*acz4(j))
+     *    +rti3*raj*rcj
+      dbbi=rtim*(bx4(i)*bx4(i)+by4(i)*by4(i)
+     *         +dx*bbx4(i)+dy*bby4(i))
+     *    +rti3*rbi*rbi
+      dbbj=rtim*(bx4(j)*bx4(j)+by4(j)*by4(j)
+     *         -dx*bbx4(j)-dy*bby4(j))
+     *    +rti3*rbj*rbj
+      dbci=rtim*(bx4(i)*cx4(i)+by4(i)*cy4(i)
+     *         +dx*bcx4(i)+dy*bcy4(i))
+     *    +rti3*rbi*rci
+      dbcj=rtim*(bx4(j)*cx4(j)+by4(j)*cy4(j)
+     *         -dx*bcx4(j)-dy*bcy4(j))
+     *    +rti3*rbj*rcj
+      dcci=rtim*(cx4(i)*cx4(i)+cy4(i)*cy4(i)+cz4(i)*cz4(i)
+     *         +dx*ccx4(i)+dy*ccy4(i)+dz*ccz4(i))
+     *    +rti3*rci*rci
+      dccj=rtim*(cx4(j)*cx4(j)+cy4(j)*cy4(j)+cz4(j)*cz4(j)
+     *         -dx*ccx4(j)-dy*ccy4(j)-dz*ccz4(j))
+     *    +rti3*rcj*rcj
+      daak=rtim*(ax4(i)*ax4(j)+ay4(i)*ay4(j)+az4(i)*az4(j))
+     *    +rti3*rai*raj
+      dabk=rtim*(ax4(i)*bx4(j)+ay4(i)*by4(j))
+     *    +rti3*rai*rbj
+      dbak=rtim*(bx4(i)*ax4(j)+by4(i)*ay4(j))
+     *    +rti3*raj*rbi
+      dack=rtim*(ax4(i)*cx4(j)+ay4(i)*cy4(j)+az4(i)*cz4(j))
+     *    +rti3*rai*rcj
+      dcak=rtim*(cx4(i)*ax4(j)+cy4(i)*ay4(j)+cz4(i)*az4(j))
+     *    +rti3*raj*rci
+      dbbk=rtim*(bx4(i)*bx4(j)+by4(i)*by4(j))
+     *    +rti3*rbi*rbj
+      dbck=rtim*(bx4(i)*cx4(j)+by4(i)*cy4(j))
+     *    +rti3*rbi*rcj
+      dcbk=rtim*(cx4(i)*bx4(j)+cy4(i)*by4(j))
+     *    +rti3*rbj*rci
+      dcck=rtim*(cx4(i)*cx4(j)+cy4(i)*cy4(j)+cz4(i)*cz4(j))
+     *    +rti3*rci*rcj
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi+4.0d0*ri
+c ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      dx=dx3-xk3
+      dy=dy3-yk3
+      dz=dz3-zk3
+      sx=dx*dx
+      sy=dy*dy
+      sz=dz*dz
+      rsi=1.0d0/(sx+sy+sz)
+      ri=sqrt(rsi)
+      rhi=rsi*rsi*rsi
+      rdi=rhi*rhi
+      de=p1*rdi+p2*rhi
+      df=(p3*rdi+p4*rhi)*ri
+      ds=(p5*rdi+p6*rhi)*rsi
+      xy=dx*dy
+      yz=dy*dz
+      zx=dz*dx
+      dfri=df*ri
+      ddx=dfri*dx
+      ddy=dfri*dy
+      ddz=dfri*dz
+      rai=ri*(ax3(i)*dx+ay3(i)*dy+az3(i)*dz)
+      ddai=df*rai
+      raj=ri*(ax3(j)*dx+ay3(j)*dy+az3(j)*dz)
+      ddaj=df*raj
+      rbi=ri*(bx3(i)*dx+by3(i)*dy)
+      ddbi=df*rbi
+      rbj=ri*(bx3(j)*dx+by3(j)*dy)
+      ddbj=df*rbj
+      rci=ri*(cx3(i)*dx+cy3(i)*dy+cz3(i)*dz)
+      ddci=df*rci
+      rcj=ri*(cx3(j)*dx+cy3(j)*dy+cz3(j)*dz)
+      ddcj=df*rcj
+      dsf=ds-dfri
+      dsfrsi=dsf*rsi
+      dsfri=dsf*ri
+      dxx=dfri+dsfrsi*sx
+      dyy=dfri+dsfrsi*sy
+      dzz=dfri+dsfrsi*sz
+      dxy=dsfrsi*xy
+      dyz=dsfrsi*yz
+      dzx=dsfrsi*zx
+      dxdsf=dx*dsfri
+      dydsf=dy*dsfri
+      dzdsf=dz*dsfri
+      dxai=dfri*ax3(i)+rai*dxdsf
+      dxaj=dfri*ax3(j)+raj*dxdsf
+      dxbi=dfri*bx3(i)+rbi*dxdsf
+      dxbj=dfri*bx3(j)+rbj*dxdsf
+      dxci=dfri*cx3(i)+rci*dxdsf
+      dxcj=dfri*cx3(j)+rcj*dxdsf
+      dyai=dfri*ay3(i)+rai*dydsf
+      dyaj=dfri*ay3(j)+raj*dydsf
+      dybi=dfri*by3(i)+rbi*dydsf
+      dybj=dfri*by3(j)+rbj*dydsf
+      dyci=dfri*cy3(i)+rci*dydsf
+      dycj=dfri*cy3(j)+rcj*dydsf
+      dzai=dfri*az3(i)+rai*dzdsf
+      dzaj=dfri*az3(j)+raj*dzdsf
+      dzbi=rbi*dzdsf
+      dzbj=rbj*dzdsf
+      dzci=dfri*cz3(i)+rci*dzdsf
+      dzcj=dfri*cz3(j)+rcj*dzdsf
+      daai=dfri*(ax3(i)*ax3(i)+ay3(i)*ay3(i)+az3(i)*az3(i)
+     *         +dx*aax3(i)+dy*aay3(i)+dz*aaz3(i))
+     *    +dsf*rai*rai
+      daaj=dfri*(ax3(j)*ax3(j)+ay3(j)*ay3(j)+az3(j)*az3(j)
+     *         -dx*aax3(j)-dy*aay3(j)-dz*aaz3(j))
+     *    +dsf*raj*raj
+      dabi=dfri*(ax3(i)*bx3(i)+ay3(i)*by3(i)
+     *         +dx*abx3(i)+dy*aby3(i))
+     *    +dsf*rai*rbi
+      dabj=dfri*(ax3(j)*bx3(j)+ay3(j)*by3(j)
+     *         -dx*abx3(j)-dy*aby3(j))
+     *    +dsf*raj*rbj
+      dbbi=dfri*(bx3(i)*bx3(i)+by3(i)*by3(i)
+     *         +dx*bbx3(i)+dy*bby3(i))
+     *    +dsf*rbi*rbi
+      dbbj=dfri*(bx3(j)*bx3(j)+by3(j)*by3(j)
+     *         -dx*bbx3(j)-dy*bby3(j))
+     *    +dsf*rbj*rbj
+      dcci=dfri*(cx3(i)*cx3(i)+cy3(i)*cy3(i)+cz3(i)*cz3(i)
+     *         +dx*ccx3(i)+dy*ccy3(i)+dz*ccz3(i))
+     *    +dsf*rci*rci
+      dccj=dfri*(cx3(j)*cx3(j)+cy3(j)*cy3(j)+cz3(j)*cz3(j)
+     *         -dx*ccx3(j)-dy*ccy3(j)-dz*ccz3(j))
+     *    +dsf*rcj*rcj
+      daci=dfri*(ax3(i)*cx3(i)+ay3(i)*cy3(i)+az3(i)*cz3(i)
+     *         +dx*acx3(i)+dy*acy3(i)+dz*acz3(i))
+     *    +dsf*rai*rci
+      dacj=dfri*(ax3(j)*cx3(j)+ay3(j)*cy3(j)+az3(j)*cz3(j)
+     *         -dx*acx3(j)-dy*acy3(j)-dz*acz3(j))
+     *    +dsf*raj*rcj
+      dbci=dfri*(bx3(i)*cx3(i)+by3(i)*cy3(i)
+     *         +dx*bcx3(i)+dy*bcy3(i))
+     *    +dsf*rbi*rci
+      dbcj=dfri*(bx3(j)*cx3(j)+by3(j)*cy3(j)
+     *         -dx*bcx3(j)-dy*bcy3(j))
+     *    +dsf*rbj*rcj
+      daak=dfri*(ax3(i)*ax3(j)+ay3(i)*ay3(j)+az3(i)*az3(j))
+     *    +dsf*rai*raj
+      dabk=dfri*(ax3(i)*bx3(j)+ay3(i)*by3(j))
+     *    +dsf*rai*rbj
+      dbak=dfri*(bx3(i)*ax3(j)+by3(i)*ay3(j))
+     *    +dsf*raj*rbi
+      dbbk=dfri*(bx3(i)*bx3(j)+by3(i)*by3(j))
+     *    +dsf*rbi*rbj
+      dcck=dfri*(cx3(i)*cx3(j)+cy3(i)*cy3(j)+cz3(i)*cz3(j))
+     *    +dsf*rci*rcj
+      dack=dfri*(ax3(i)*cx3(j)+ay3(i)*cy3(j)+az3(i)*cz3(j))
+     *    +dsf*rai*rcj
+      dcak=dfri*(cx3(i)*ax3(j)+cy3(i)*ay3(j)+cz3(i)*az3(j))
+     *    +dsf*raj*rci
+      dbck=dfri*(bx3(i)*cx3(j)+by3(i)*cy3(j))
+     *    +dsf*rbi*rcj
+      dcbk=dfri*(cx3(i)*bx3(j)+cy3(i)*by3(j))
+     *    +dsf*rbj*rci
+      fdx=ddx+fdx
+      fdy=ddy+fdy
+      fdz=ddz+fdz
+      fdai=fdai+ddai
+      fdbi=fdbi+ddbi
+      fdci=fdci+ddci
+      fdaj=fdaj+ddaj
+      fdbj=fdbj+ddbj
+      fdcj=fdcj+ddcj
+      sdxx=dxx+sdxx
+      sdyy=dyy+sdyy
+      sdzz=dzz+sdzz
+      sdxy=dxy+sdxy
+      sdyz=dyz+sdyz
+      sdzx=dzx+sdzx
+      sdxai=dxai+sdxai
+      sdyai=dyai+sdyai
+      sdzai=dzai+sdzai
+      sdxbi=dxbi+sdxbi
+      sdybi=dybi+sdybi
+      sdzbi=dzbi+sdzbi
+      sdxci=dxci+sdxci
+      sdyci=dyci+sdyci
+      sdzci=dzci+sdzci
+      sdxaj=dxaj+sdxaj
+      sdyaj=dyaj+sdyaj
+      sdzaj=dzaj+sdzaj
+      sdxbj=dxbj+sdxbj
+      sdybj=dybj+sdybj
+      sdzbj=dzbj+sdzbj
+      sdxcj=dxcj+sdxcj
+      sdycj=dycj+sdycj
+      sdzcj=dzcj+sdzcj
+      sdaai=daai+sdaai
+      sdabi=dabi+sdabi
+      sdaci=daci+sdaci
+      sdbbi=dbbi+sdbbi
+      sdbci=dbci+sdbci
+      sdcci=dcci+sdcci
+      sdaaj=daaj+sdaaj
+      sdabj=dabj+sdabj
+      sdacj=dacj+sdacj
+      sdbbj=dbbj+sdbbj
+      sdbcj=dbcj+sdbcj
+      sdccj=dccj+sdccj
+      sdaak=daak+sdaak
+      sdabk=dabk+sdabk
+      sdbak=dbak+sdbak
+      sdack=dack+sdack
+      sdcak=dcak+sdcak
+      sdbbk=dbbk+sdbbk
+      sdbck=dbck+sdbck
+      sdcbk=dcbk+sdcbk
+      sdcck=dcck+sdcck
+      epi=epi+de
+c ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
+      ntj1=3*j-2
+      nrj1=n3+ntj1
+      nrj2=nrj1+1
+      nrj3=nrj2+1
+      ntj2=ntj1+1
+      ntj3=ntj2+1
+      if(rr.gt.rl) then
+      u=epi
+      vdx=fdx
+      vdy=fdy
+      vdz=fdz
+      epi=epi*sf
+      fdx=vdx*sf+sdx*u
+      fdy=vdy*sf+sdy*u
+      fdz=vdz*sf+sdz*u
+      sdxx=sdxx*sf+2.0d0*vdx*sdx+sxx*u
+      sdyy=sdyy*sf+2.0d0*vdy*sdy+syy*u
+      sdzz=sdzz*sf+2.0d0*vdz*sdz+szz*u
+      sdxy=sdxy*sf+vdx*sdy+vdy*sdx+sxy*u
+      sdyz=sdyz*sf+vdy*sdz+vdz*sdy+syz*u
+      sdzx=sdzx*sf+vdz*sdx+vdx*sdz+szx*u
+      sdxai=sdx*fdai+sdxai*sf
+      sdxbi=sdx*fdbi+sdxbi*sf
+      sdxci=sdx*fdci+sdxci*sf
+      sdyai=sdy*fdai+sdyai*sf
+      sdybi=sdy*fdbi+sdybi*sf
+      sdyci=sdy*fdci+sdyci*sf
+      sdzai=sdz*fdai+sdzai*sf
+      sdzbi=sdz*fdbi+sdzbi*sf
+      sdzci=sdz*fdci+sdzci*sf
+      sdxaj=sdx*fdaj+sdxaj*sf
+      sdxbj=sdx*fdbj+sdxbj*sf
+      sdxcj=sdx*fdcj+sdxcj*sf
+      sdyaj=sdy*fdaj+sdyaj*sf
+      sdybj=sdy*fdbj+sdybj*sf
+      sdycj=sdy*fdcj+sdycj*sf
+      sdzaj=sdz*fdaj+sdzaj*sf
+      sdzbj=sdz*fdbj+sdzbj*sf
+      sdzcj=sdz*fdcj+sdzcj*sf
+      fdai=fdai*sf
+      fdbi=fdbi*sf
+      fdci=fdci*sf
+      fdaj=fdaj*sf
+      fdbj=fdbj*sf
+      fdcj=fdcj*sf
+      sdaai=sdaai*sf
+      sdabi=sdabi*sf
+      sdaci=sdaci*sf
+      sdbbi=sdbbi*sf
+      sdbci=sdbci*sf
+      sdcci=sdcci*sf
+      sdaaj=sdaaj*sf
+      sdabj=sdabj*sf
+      sdacj=sdacj*sf
+      sdbbj=sdbbj*sf
+      sdbcj=sdbcj*sf
+      sdccj=sdccj*sf
+      sdaak=sdaak*sf
+      sdabk=sdabk*sf
+      sdack=sdack*sf
+      sdbbk=sdbbk*sf
+      sdbck=sdbck*sf
+      sdcck=sdcck*sf
+      SDBAK=SDBAK*SF
+      SDCAK=SDCAK*SF
+      SDCBK=SDCBK*SF
+      end if
+      epid=epi*emupid
+      ep=ep+epid
+      sd(nti1,nti1)=sdxx+sd(nti1,nti1)
+      sd(nti1,nti2)=sdxy+sd(nti1,nti2)
+      sd(nti2,nti1)=sdxy+sd(nti2,nti1)
+      sd(nti1,nti3)=sdzx+sd(nti1,nti3)
+      sd(nti3,nti1)=sdzx+sd(nti3,nti1)
+      sd(nti2,nti2)=sdyy+sd(nti2,nti2)
+      sd(nti2,nti3)=sdyz+sd(nti2,nti3)
+      sd(nti3,nti2)=sdyz+sd(nti3,nti2)
+      sd(nti3,nti3)=sdzz+sd(nti3,nti3)
+      sd(ntj1,ntj1)=sdxx+sd(ntj1,ntj1)
+      sd(ntj1,ntj2)=sdxy+sd(ntj1,ntj2)
+      sd(ntj2,ntj1)=sdxy+sd(ntj2,ntj1)
+      sd(ntj1,ntj3)=sdzx+sd(ntj1,ntj3)
+      sd(ntj3,ntj1)=sdzx+sd(ntj3,ntj1)
+      sd(ntj2,ntj2)=sdyy+sd(ntj2,ntj2)
+      sd(ntj2,ntj3)=sdyz+sd(ntj2,ntj3)
+      sd(ntj3,ntj2)=sdyz+sd(ntj3,ntj2)
+      sd(ntj3,ntj3)=sdzz+sd(ntj3,ntj3)
+      sd(ntj1,nti1)=-sdxx+sd(ntj1,nti1)
+      sd(ntj1,nti2)=-sdxy+sd(ntj1,nti2)
+      sd(ntj2,nti1)=-sdxy+sd(ntj2,nti1)
+      sd(ntj1,nti3)=-sdzx+sd(ntj1,nti3)
+      sd(ntj3,nti1)=-sdzx+sd(ntj3,nti1)
+      sd(ntj2,nti2)=-sdyy+sd(ntj2,nti2)
+      sd(ntj2,nti3)=-sdyz+sd(ntj2,nti3)
+      sd(ntj3,nti2)=-sdyz+sd(ntj3,nti2)
+      sd(ntj3,nti3)=-sdzz+sd(ntj3,nti3)
+      sd(nti1,ntj1)=-sdxx+sd(nti1,ntj1)
+      sd(nti1,ntj2)=-sdxy+sd(nti1,ntj2)
+      sd(nti2,ntj1)=-sdxy+sd(nti2,ntj1)
+      sd(nti1,ntj3)=-sdzx+sd(nti1,ntj3)
+      sd(nti3,ntj1)=-sdzx+sd(nti3,ntj1)
+      sd(nti2,ntj2)=-sdyy+sd(nti2,ntj2)
+      sd(nti2,ntj3)=-sdyz+sd(nti2,ntj3)
+      sd(nti3,ntj2)=-sdyz+sd(nti3,ntj2)
+      sd(nti3,ntj3)=-sdzz+sd(nti3,ntj3)
+      sd(nri1,nri1)=sdaai+sd(nri1,nri1)
+      sd(nri1,nri2)=sdabi+sd(nri1,nri2)
+      sd(nri2,nri1)=sdabi+sd(nri2,nri1)
+      sd(nri1,nri3)=sdaci+sd(nri1,nri3)
+      sd(nri3,nri1)=sdaci+sd(nri3,nri1)
+      sd(nri2,nri2)=sdbbi+sd(nri2,nri2)
+      sd(nri2,nri3)=sdbci+sd(nri2,nri3)
+      sd(nri3,nri2)=sdbci+sd(nri3,nri2)
+      sd(nri3,nri3)=sdcci+sd(nri3,nri3)
+      sd(nrj1,nrj1)=sdaaj+sd(nrj1,nrj1)
+      sd(nrj1,nrj2)=sdabj+sd(nrj1,nrj2)
+      sd(nrj2,nrj1)=sdabj+sd(nrj2,nrj1)
+      sd(nrj1,nrj3)=sdacj+sd(nrj1,nrj3)
+      sd(nrj3,nrj1)=sdacj+sd(nrj3,nrj1)
+      sd(nrj2,nrj2)=sdbbj+sd(nrj2,nrj2)
+      sd(nrj2,nrj3)=sdbcj+sd(nrj2,nrj3)
+      sd(nrj3,nrj2)=sdbcj+sd(nrj3,nrj2)
+      sd(nrj3,nrj3)=sdccj+sd(nrj3,nrj3)
+      sd(nri1,nrj1)=-sdaak+sd(nri1,nrj1)
+      sd(nrj1,nri1)=-sdaak+sd(nrj1,nri1)
+      sd(nri1,nrj2)=-sdabk+sd(nri1,nrj2)
+      sd(nrj2,nri1)=-sdabk+sd(nrj2,nri1)
+      sd(nri2,nrj1)=-sdbak+sd(nri2,nrj1)
+      sd(nrj1,nri2)=-sdbak+sd(nrj1,nri2)
+      sd(nri1,nrj3)=-sdack+sd(nri1,nrj3)
+      sd(nrj3,nri1)=-sdack+sd(nrj3,nri1)
+      sd(nri3,nrj1)=-sdcak+sd(nri3,nrj1)
+      sd(nrj1,nri3)=-sdcak+sd(nrj1,nri3)
+      sd(nri2,nrj2)=-sdbbk+sd(nri2,nrj2)
+      sd(nrj2,nri2)=-sdbbk+sd(nrj2,nri2)
+      sd(nri2,nrj3)=-sdbck+sd(nri2,nrj3)
+      sd(nrj3,nri2)=-sdbck+sd(nrj3,nri2)
+      sd(nri3,nrj2)=-sdcbk+sd(nri3,nrj2)
+      sd(nrj2,nri3)=-sdcbk+sd(nrj2,nri3)
+      sd(nri3,nrj3)=-sdcck+sd(nri3,nrj3)
+      sd(nrj3,nri3)=-sdcck+sd(nrj3,nri3)
+      sd(nti1,nri1)=sdxai+sd(nti1,nri1)
+      sd(nri1,nti1)=sdxai+sd(nri1,nti1)
+      sd(nti1,nri2)=sdxbi+sd(nti1,nri2)
+      sd(nri2,nti1)=sdxbi+sd(nri2,nti1)
+      sd(nti1,nri3)=sdxci+sd(nti1,nri3)
+      sd(nri3,nti1)=sdxci+sd(nri3,nti1)
+      sd(nti2,nri1)=sdyai+sd(nti2,nri1)
+      sd(nri1,nti2)=sdyai+sd(nri1,nti2)
+      sd(nti2,nri2)=sdybi+sd(nti2,nri2)
+      sd(nri2,nti2)=sdybi+sd(nri2,nti2)
+      sd(nti2,nri3)=sdyci+sd(nti2,nri3)
+      sd(nri3,nti2)=sdyci+sd(nri3,nti2)
+      sd(nti3,nri1)=sdzai+sd(nti3,nri1)
+      sd(nri1,nti3)=sdzai+sd(nri1,nti3)
+      sd(nti3,nri2)=sdzbi+sd(nti3,nri2)
+      sd(nri2,nti3)=sdzbi+sd(nri2,nti3)
+      sd(nti3,nri3)=sdzci+sd(nti3,nri3)
+      sd(nri3,nti3)=sdzci+sd(nri3,nti3)
+      sd(ntj1,nrj1)=sdxaj+sd(ntj1,nrj1)
+      sd(nrj1,ntj1)=sdxaj+sd(nrj1,ntj1)
+      sd(ntj1,nrj2)=sdxbj+sd(ntj1,nrj2)
+      sd(nrj2,ntj1)=sdxbj+sd(nrj2,ntj1)
+      sd(ntj1,nrj3)=sdxcj+sd(ntj1,nrj3)
+      sd(nrj3,ntj1)=sdxcj+sd(nrj3,ntj1)
+      sd(ntj2,nrj1)=sdyaj+sd(ntj2,nrj1)
+      sd(nrj1,ntj2)=sdyaj+sd(nrj1,ntj2)
+      sd(ntj2,nrj2)=sdybj+sd(ntj2,nrj2)
+      sd(nrj2,ntj2)=sdybj+sd(nrj2,ntj2)
+      sd(ntj2,nrj3)=sdycj+sd(ntj2,nrj3)
+      sd(nrj3,ntj2)=sdycj+sd(nrj3,ntj2)
+      sd(ntj3,nrj1)=sdzaj+sd(ntj3,nrj1)
+      sd(nrj1,ntj3)=sdzaj+sd(nrj1,ntj3)
+      sd(ntj3,nrj2)=sdzbj+sd(ntj3,nrj2)
+      sd(nrj2,ntj3)=sdzbj+sd(nrj2,ntj3)
+      sd(ntj3,nrj3)=sdzcj+sd(ntj3,nrj3)
+      sd(nrj3,ntj3)=sdzcj+sd(nrj3,ntj3)
+      sd(ntj1,nri1)=-sdxai+sd(ntj1,nri1)
+      sd(nri1,ntj1)=-sdxai+sd(nri1,ntj1)
+      sd(ntj1,nri2)=-sdxbi+sd(ntj1,nri2)
+      sd(nri2,ntj1)=-sdxbi+sd(nri2,ntj1)
+      sd(ntj1,nri3)=-sdxci+sd(ntj1,nri3)
+      sd(nri3,ntj1)=-sdxci+sd(nri3,ntj1)
+      sd(ntj2,nri1)=-sdyai+sd(ntj2,nri1)
+      sd(nri1,ntj2)=-sdyai+sd(nri1,ntj2)
+      sd(ntj2,nri2)=-sdybi+sd(ntj2,nri2)
+      sd(nri2,ntj2)=-sdybi+sd(nri2,ntj2)
+      sd(ntj2,nri3)=-sdyci+sd(ntj2,nri3)
+      sd(nri3,ntj2)=-sdyci+sd(nri3,ntj2)
+      sd(ntj3,nri1)=-sdzai+sd(ntj3,nri1)
+      sd(nri1,ntj3)=-sdzai+sd(nri1,ntj3)
+      sd(ntj3,nri2)=-sdzbi+sd(ntj3,nri2)
+      sd(nri2,ntj3)=-sdzbi+sd(nri2,ntj3)
+      sd(ntj3,nri3)=-sdzci+sd(ntj3,nri3)
+      sd(nri3,ntj3)=-sdzci+sd(nri3,ntj3)
+      sd(nti1,nrj1)=-sdxaj+sd(nti1,nrj1)
+      sd(nrj1,nti1)=-sdxaj+sd(nrj1,nti1)
+      sd(nti1,nrj2)=-sdxbj+sd(nti1,nrj2)
+      sd(nrj2,nti1)=-sdxbj+sd(nrj2,nti1)
+      sd(nti1,nrj3)=-sdxcj+sd(nti1,nrj3)
+      sd(nrj3,nti1)=-sdxcj+sd(nrj3,nti1)
+      sd(nti2,nrj1)=-sdyaj+sd(nti2,nrj1)
+      sd(nrj1,nti2)=-sdyaj+sd(nrj1,nti2)
+      sd(nti2,nrj2)=-sdybj+sd(nti2,nrj2)
+      sd(nrj2,nti2)=-sdybj+sd(nrj2,nti2)
+      sd(nti2,nrj3)=-sdycj+sd(nti2,nrj3)
+      sd(nrj3,nti2)=-sdycj+sd(nrj3,nti2)
+      sd(nti3,nrj1)=-sdzaj+sd(nti3,nrj1)
+      sd(nrj1,nti3)=-sdzaj+sd(nrj1,nti3)
+      sd(nti3,nrj2)=-sdzbj+sd(nti3,nrj2)
+      sd(nrj2,nti3)=-sdzbj+sd(nrj2,nti3)
+      sd(nti3,nrj3)=-sdzcj+sd(nti3,nrj3)
+      sd(nrj3,nti3)=-sdzcj+sd(nrj3,nti3)
+   70 continue
+   80 continue
+60    continue
+      return
+      end
+      subroutine hoqrvw(a,ka,n,e,eps,w,ind)
+      implicit real*8 (a-h,o-z)
+      dimension a(ka,n),e(n),w(n,2)
+      data dmach/2.d-16/
+      logical ll
+      if(n.lt.1.or.n.gt.ka.or.eps.le.0.d0) go to 540
+      ll=ind.eq.0
+      do 210 k=1,n-2
+      md=mod(n-k,4)+1
+      e(k)=a(k,k)
+      s=0.d0
+      do 10 j=k+1,n
+      w(j,1)=0.d0
+      e(j)=a(k,j)
+   10 s=e(j)*e(j)+s
+      s=dsign(dsqrt(s),e(k+1))
+      w(k,1)=-s
+      e(k+1)=e(k+1)+s
+      a(k,k+1)=e(k+1)
+      h=e(k+1)*s
+      if(h.le.0.d0) go to 210
+      h=1.d0/h
+      do 30 j=k+1,n-3,4
+      do 20 i=k+1,n
+   20 w(i,1)=e(j)*a(i,j)+e(j+1)*a(i,j+1)
+     *+e(j+2)*a(i,j+2)+e(j+3)*a(i,j+3)+w(i,1)
+   30 continue
+      go to (100,40,60,80),md
+   40 do 50 i=k+1,n
+   50 w(i,1)=e(n)*a(i,n)+w(i,1)
+      go to 100
+   60 do 70 i=k+1,n
+   70 w(i,1)=e(n-1)*a(i,n-1)+e(n)*a(i,n)+w(i,1)
+      go to 100
+   80 do 90 i=k+1,n
+   90 w(i,1)=e(n-2)*a(i,n-2)+e(n-1)*a(i,n-1)+e(n)*a(i,n)+w(i,1)
+  100 r=0.d0
+      do 110 i=k+1,n
+  110 r=e(i)*w(i,1)+r
+      g=r*0.5d0*h
+      do 120 j=k+1,n
+  120 w(j,1)=(e(j)*g-w(j,1))*h
+      do 140 j=k+1,n-3,4
+      do 130 i=k+1,n
+      a(i,j)=e(j)*w(i,1)+e(i)*w(j,1)+a(i,j)
+      a(i,j+1)=e(j+1)*w(i,1)+e(i)*w(j+1,1)+a(i,j+1)
+      a(i,j+2)=e(j+2)*w(i,1)+e(i)*w(j+2,1)+a(i,j+2)
+  130 a(i,j+3)=e(j+3)*w(i,1)+e(i)*w(j+3,1)+a(i,j+3)
+  140 continue
+      go to (210,150,170,190),md
+  150 do 160 i=k+1,n
+  160 a(i,n)=e(n)*w(i,1)+e(i)*w(n,1)+a(i,n)
+      go to 210
+  170 do 180 i=k+1,n
+      a(i,n-1)=e(n-1)*w(i,1)+e(i)*w(n-1,1)+a(i,n-1)
+  180 a(i,n)=e(n)*w(i,1)+e(i)*w(n,1)+a(i,n)
+      go to 210
+  190 do 200 i=k+1,n
+      a(i,n-2)=e(n-2)*w(i,1)+e(i)*w(n-2,1)+a(i,n-2)
+      a(i,n-1)=e(n-1)*w(i,1)+e(i)*w(n-1,1)+a(i,n-1)
+  200 a(i,n)=e(n)*w(i,1)+e(i)*w(n,1)+a(i,n)
+  210 a(k,k)=h
+      e(n)=a(n,n)
+      a(n,n)=1.d0
+      if(n.eq.1) go to 530
+      e(n-1)=a(n-1,n-1)
+      w(n-1,1)=a(n-1,n)
+      a(n-1,n-1)=1.d0
+      a(n-1,n)=0.d0
+      a(n,n-1)=0.d0
+      if(ll) go to 430
+      do 420 k=n-2,1,-1
+      h=-a(k,k)
+      a(k,k)=1.d0
+      if(h.ge.0.d0) go to 400
+      do 220 i=k+1,n
+      w(i,2)=0.d0
+  220 a(i,k)=a(k,i)*h
+      do 240 i=k+1,n-3,4
+      do 230 j=k+1,n
+  230 w(j,2)=a(i,j)*a(k,i)+a(i+1,j)*a(k,i+1)
+     *+a(i+2,j)*a(k,i+2)+a(i+3,j)*a(k,i+3)+w(j,2)
+  240 continue
+      md=mod(n-k,4)+1
+      go to (310,250,270,290),md
+  250 do 260 j=k+1,n
+  260 w(j,2)=a(n,j)*a(k,n)+w(j,2)
+      go to 310
+  270 do 280 j=k+1,n
+  280 w(j,2)=a(n-1,j)*a(k,n-1)+a(n,j)*a(k,n)+w(j,2)
+      go to 310
+  290 do 300 j=k+1,n
+  300 w(j,2)=a(n-2,j)*a(k,n-2)+a(n-1,j)*a(k,n-1)+a(n,j)*a(k,n)+w(j,2)
+  310 do 330 j=k+1,n-3,4
+*voption vec
+      do 320 i=k+1,n
+      a(i,j)=w(j,2)*a(i,k)+a(i,j)
+      a(i,j+1)=w(j+1,2)*a(i,k)+a(i,j+1)
+      a(i,j+2)=w(j+2,2)*a(i,k)+a(i,j+2)
+  320 a(i,j+3)=w(j+3,2)*a(i,k)+a(i,j+3)
+  330 continue
+      go to (400,340,360,380),md
+*voption vec
+  340 do 350 i=k+1,n
+  350 a(i,n)=w(n,2)*a(i,k)+a(i,n)
+      go to 400
+*voption vec
+  360 do 370 i=k+1,n
+      a(i,n-1)=w(n-1,2)*a(i,k)+a(i,n-1)
+  370 a(i,n)=w(n,2)*a(i,k)+a(i,n)
+      go to 400
+*voption vec
+  380 do 390 i=k+1,n
+      a(i,n-2)=w(n-2,2)*a(i,k)+a(i,n-2)
+      a(i,n-1)=w(n-1,2)*a(i,k)+a(i,n-1)
+  390 a(i,n)=w(n,2)*a(i,k)+a(i,n)
+  400 do 410 i=k+1,n
+      a(i,k)=0.d0
+  410 a(k,i)=0.d0
+  420 continue
+  430 gn=dabs(e(1))+dabs(w(1,1))
+      w(n,1)=0.d0
+      do 440 i=1,n-1
+      w(i+1,2)=w(i,1)
+  440 gn=dmax1(dabs(w(i,1))+dabs(e(i+1))+dabs(w(i+1,1)),gn)
+      if(gn.eq.0.d0) go to 530
+      del=gn*dmax1(eps,dmach)
+      do 520 k=n,2,-1
+  450 do 460 l=k,2,-1
+      if(dabs(w(l,2)).lt.del) go to 470
+  460 continue
+      l=1
+  470 if(l.eq.k) go to 520
+      g=(e(k-1)+e(k))*0.5d0
+      f=e(k)-g
+      ww0=w(k,2)*w(k,2)
+      z=dsign(dsqrt(f*f+ww0),f)+g
+      if(l+1.eq.k) go to 490
+      ww1=w(k-1,2)*w(k-1,2)
+      do 480 itime=1,2
+      f2=(e(k-1)-z)*(e(k)-z)-ww0
+      f3=(e(k-2)-z)*f2+(z-e(k))*ww1
+      df3=(e(k-2)-z)*(z-e(k)+z-e(k-1))-f2+ww1
+      if(dabs(df3).gt.dabs(f3)) z=z-f3/df3
+  480 continue
+  490 e(l)=e(l)-z
+      c=1.d0
+      s=0.d0
+      do 510 j=l,k-1
+      r=dsqrt(e(j)*e(j)+w(j+1,2)*w(j+1,2))
+      w(j,2)=s*r
+      ee=e(j)*c
+      ff=w(j+1,2)*c
+      c=e(j)/r
+      s=w(j+1,2)/r
+      e(j)=((e(j+1)-z)*s+ff*c)*s+ee+z
+      e(j+1)=(e(j+1)-z)*c-ff*s
+      if(ll) go to 510
+      do 500 i=1,n
+      g=a(i,j+1)
+      a(i,j+1)=g*c-a(i,j)*s
+  500 a(i,j)=a(i,j)*c+g*s
+  510 continue
+      w(k,2)=e(k)*s
+      e(k)=e(k)*c+z
+      go to 450
+  520 continue
+      index=1
+      if(ll) call sortdk(n,e,index)
+      if(.not.ll) call srtvdd(n,e,a,ka,n,w(1,1),w(1,2),index)
+  530 ind=0
+      return
+  540 ind=30000
+      return
+      end
+      subroutine sortds(n,ak,a,ind)
+      integer r,rr
+      real*8 ak,bk
+      dimension a(n),ak(n),rr(30),ll(30)
+      entry      sortdi(n,ak,a,ind)
+      if(n.lt.1) go to 200
+      if(n.eq.1) go to 190
+      if(ind.eq.0) go to 20
+      do 10 i=1,n
+   10 ak(i)=-ak(i)
+   20 isp=0
+      l=1
+      r=n
+   30 if(r-l.lt.16) go to 120
+      m=(r+l)/2
+      max=r
+      if(ak(m).gt.ak(r)) max=m
+      if(ak(l).gt.ak(max)) max=l
+      if(max.eq.r) go to 40
+      b=a(max)
+      bk=ak(max)
+      a(max)=a(r)
+      ak(max)=ak(r)
+      a(r)=b
+      ak(r)=bk
+   40 if(ak(l).ge.ak(m)) go to 50
+      b=a(l)
+      bk=ak(l)
+      a(l)=a(m)
+      ak(l)=ak(m)
+      a(m)=b
+      ak(m)=bk
+   50 b=a(l)
+      bk=ak(l)
+      i=l
+      j=r
+      go to 80
+   60 a(j)=a(i)
+      ak(j)=ak(i)
+   70 j=j-1
+   80 if(bk.lt.ak(j)) go to 70
+      if(j.le.i) go to 100
+      a(i)=a(j)
+      ak(i)=ak(j)
+   90 i=i+1
+      if(ak(i).lt.bk) go to 90
+      if(j.gt.i) go to 60
+      i=j
+  100 a(i)=b
+      ak(i)=bk
+      isp=isp+1
+      if(r-i.ge.i-l) go to 110
+      ll(isp)=l
+      rr(isp)=i-1
+      l=i+1
+      go to 30
+  110 ll(isp)=i+1
+      rr(isp)=r
+      r=i-1
+      go to 30
+  120 if(r-l.lt.1) go to 160
+      j=r
+  130 b=a(j-1)
+      bk=ak(j-1)
+      i=j
+  140 if(ak(i).ge.bk) go to 150
+      a(i-1)=a(i)
+      ak(i-1)=ak(i)
+      i=i+1
+      if(i.le.r) go to 140
+  150 a(i-1)=b
+      ak(i-1)=bk
+      j=j-1
+      if(j.gt.l) go to 130
+  160 if(isp.eq.0) go to 170
+      l=ll(isp)
+      r=rr(isp)
+      isp=isp-1
+      go to 30
+  170 if(ind.eq.0) return
+      do 180 i=1,n
+  180 ak(i)=-ak(i)
+      ind=0
+      return
+  190 ind=0
+      return
+  200 ind=30000
+      return
+      end
+      subroutine sortdk(n,ak,ind)
+      integer*4 rr(30),ll(30),r
+      real*8 ak(n),bk
+      if(n.lt.1) go to 200
+      if(n.eq.1) go to 190
+      if(ind.eq.0) go to 20
+      do 10 i=1,n
+   10 ak(i)=-ak(i)
+   20 isp=0
+      l=1
+      r=n
+   30 if(r-l.lt.16) go to 120
+      m=(r+l)/2
+      max=r
+      if(ak(m).gt.ak(r)) max=m
+      if(ak(l).gt.ak(max)) max=l
+      if(max.eq.r) go to 40
+      bk=ak(max)
+      ak(max)=ak(r)
+      ak(r)=bk
+   40 if(ak(l).ge.ak(m)) go to 50
+      bk=ak(l)
+      ak(l)=ak(m)
+      ak(m)=bk
+   50 bk=ak(l)
+      i=l
+      j=r
+      go to 80
+   60 ak(j)=ak(i)
+   70 j=j-1
+   80 if(bk.lt.ak(j)) go to 70
+      if(j.le.i) go to 100
+      ak(i)=ak(j)
+   90 i=i+1
+      if(ak(i).lt.bk) go to 90
+      if(j.gt.i) go to 60
+      i=j
+  100 ak(i)=bk
+      isp=isp+1
+      if(r-i.ge.i-l) go to 110
+      ll(isp)=l
+      rr(isp)=i-1
+      l=i+1
+      go to 30
+  110 ll(isp)=i+1
+      rr(isp)=r
+      r=i-1
+      go to 30
+  120 if(r-l.lt.1) go to 160
+      j=r
+  130 bk=ak(j-1)
+      i=j
+  140 if(ak(i).ge.bk) go to 150
+      ak(i-1)=ak(i)
+      i=i+1
+      if(i.le.r) go to 140
+  150 ak(i-1)=bk
+      j=j-1
+      if(j.gt.l) go to 130
+  160 if(isp.eq.0) go to 170
+      l=ll(isp)
+      r=rr(isp)
+      isp=isp-1
+      go to 30
+  170 if(ind.eq.0) return
+      do 180 i=1,n
+  180 ak(i)=-ak(i)
+      ind=0
+      return
+  190 ind=0
+      return
+  200 ind=30000
+      return
+      end
+      subroutine srtvdd(n,ak,v,kv,l,iw,w,ind)
+      real*8 ak(n),v(kv,n),w(l)
+      dimension iw(n)
+      if(l.lt.1.or.n.lt.1.or.l.gt.kv) go to 90
+      do 10 i=1,n
+   10 iw(i)=i
+      call sortdi(n,ak,iw,ind)
+      do 70 k=1,n
+      if(iw(k).eq.k) go to 70
+      do 20 i=1,l
+   20 w(i)=v(i,k)
+      j=k
+   30 jj=iw(j)
+      iw(j)=j
+      if(jj.eq.k) go to 50
+      do 40 i=1,l
+   40 v(i,j)=v(i,jj)
+      j=jj
+      go to 30
+   50 do 60 i=1,l
+   60 v(i,j)=w(i)
+   70 continue
+   80 ind=0
+      return
+   90 ind=30000
+      return
+      end
