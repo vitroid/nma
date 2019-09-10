@@ -1,4 +1,6 @@
 ! -*- coding: utf-8 -*-
+!     これからこのコードに、可能な限りコメントをつけて構造を理解します。
+!     2019-09-10 MM
       program nma
 c ----------------------------------------------------------------------
 c
@@ -54,60 +56,80 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       common /cr/ fdi(nd$),sd(nd$,nd$)
       common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
       common /in/ lc(np$),n,nn,n3,n6
+!     ボルツマン定数
+!     (注)cgs単位系
       data bk,anum/1.38054d-16,6.0225d+23/
+!     TIP4Pの電荷とLennard-Jones力の定数。単位は素電荷とkcal/mol
       data qq,ad1,ad2/0.535d0,6.95d+5,6.00d+2/
+!     TIP4Pの幾何定数。単位は度とA
       data angle,holen,colen/104.52d0,0.9572d0,0.15d0/
+!     ??
       data qe/332.17752d0/
+!     1 kcalは4184 J
       data uj/4.184d3/
+!     l Aは1e-8 cm
+!     (注)l cgs単位系で書かれているかも。そうすると素電荷は1.602ではなくなる。
       data sg/1.0d-8/
       character*5 tag
       real*8 bx,by,bz
+!     convergence testの閾値
       eps=2.0d-16
+!     Euler角を切り替える閾値。
       csinth = 0.7d0
-      !read(5,*) csinth
-      !read(5,*) ipot
+!     %%がついている定数はコンパイル時に適切におきかえられる。
       ipot = %%IPOT%%
-      !read(5,*) wh,wo
+!     原子量。単位はg/mol
       wh = 1.0d0
       wo = 16.0d0
+!     分子量。単位はg/mol
       wm = wh + wh + wo
 c     add end
+!     相互作用モデル。単位は素電荷とkcal/mol
       if(ipot.eq.4) then
-      qq=0.52d0
-      ad1=6.0d+5
-      ad2=6.10d+2
+         qq=0.52d0
+         ad1=6.0d+5
+         ad2=6.10d+2
       else if (ipot.eq.2005) then
-      qq = 0.5564d0
-      eee = 0.77490376061127586d0
-      sss = 3.1589d0
-      ad1 = 4*eee*sss**12/uj
-      ad2 = 4*eee*sss**6/uj
+         qq = 0.5564d0
+         eee = 0.77490376061127586d0
+         sss = 3.1589d0
+         ad1 = 4*eee*sss**12/uj
+         ad2 = 4*eee*sss**6/uj
       end if
+!     円周率
       pi=4.0d0*atan(1.0d0)
+!     3。
       nthree=nr$
+!     クーロン相互作用の単位量
+!     qqは素電荷に対する比
+!     (注)qeは謎の定数
       qs=qq**2*qe
+!     クーロン相互作用の定数部分
       sw=sqrt(qs*uj*1.0d3/wm)/(6.0d0*pi)
+!     ad1, ad2は水のLJ相互作用の定数。エネルギー計算をクーロン相互作用の単位で統一する。
       p1=ad1/qs
       p2=-ad2/qs
+!     微分ででてくる定数。
       p3=-p1*12.0d0
       p4=-p2*6.0d0
       p5=-p3*13.0d0
       p6=-p4*7.0d0
+!     ラジアンとの変換係数
       rangle=pi*angle/360.0d0
+!     分子内座標。単位は\AA
       ohz=holen*cos(rangle)
       hyl=holen*sin(rangle)
       hzl=wo*ohz/wm
       ol=-ohz+hzl
       cl=colen+ol
-!      read(12) n,ncl,nstop,nrec,nav,ix,
-!     *         hh,dt,tiun,tempo,rdens
-
       do
          read(5,*) tag
          if ( tag .eq. "@BOX3" ) then
+!     セルサイズの読みこみ
             read(5,*) bx,by,bz
          endif
          if ( tag .eq. "@NX3A" ) then
+!     分子の重心位置と配向の読み込み
             read(5,*) n
             do i=1,n
                read(5,*) x(i),y(i),z(i),ea(i),eb(i),ec(i)
@@ -115,233 +137,275 @@ c     add end
             exit
          endif
       enddo
-
+!     密度 (計算には不要)
       rdens = n * wm / anum / (bx*by*bz*1d-24)
       !rdens = 8 * wm / anum / (6.322e-8)**3
       write(STDERR,*) "Density=", rdens
+!     1分子の質量。単位はg
       wmm=wm/anum
+!     エネルギーの内部単位
       enu=qs/anum*uj*1.0d+7
       etemp=enu/bk
+!     かけ算を効率化するための定数
+!     (注)こういった最適化はコンパイラにまかせたほうが良い。可読性を下げるので推奨できない。
       nn=n-1
       n3=n*3
       n6=n3+n3
+!     慣性モーメント。長さの単位はA、質量単位はg/mol
       rix=(wo*ol*ol+2d0*wh*(hyl*hyl+hzl*hzl))/wm
       riy=(wo*ol*ol+2d0*wh*hzl*hzl)/wm
       riz=2d0*wh*hyl*hyl/wm
+!     分子数(実数)
       pn=float(n)
+!     数子分(分子数の逆数)
       pni=1.0d0/pn
+!     
       emu=1.0d-10*enu*anum*pni
       emupid=emu*pn
+!     数密度。単位は個/A^3
       dens=anum*sg*sg*sg*rdens/wm
+!     n分子あたりの体積。単位はA^3
       vol=pn/dens
+!     立方体セルの場合の一辺長さ、単位はA
       bxl=vol**(1.0d0/3.0d0)
+!     n分子あたりの体積、単位はcm^3
       rvol=vol*sg*sg*sg
+!     カットオフ長さrcがbxlの半分よりも大きくならないようにrcを調節する。
       if(bxl.gt.%%RCOA%%*2) then
          rc=%%RCOA%%
       else
          rc=0.5d0*bxl
       end if
+!     truncation関数のための係数群
       rc2=rc*rc
       rl=rc-2.0d0
       rq=1.0d0/(rl-rc)**5
       rq3=30.0d0/(rl-rc)**5
       rq6=60.0d0/(rl-rc)**5
+!     円周率の倍。
       pid=2.0d0*pi
       !write(STDERR,*) rc
       write(STDERR,601) n
 601   format(5x,'normal mode analysis for water molecules '/
      *          5x,'number of molecules = ',i5)
       write(STDERR,*) "BOX", vol,bx,by,bz,bxl
-      !read(12) x,y,z,ea,eb,ec
-      !do i=1,n
-      !   read(5,*) x(i),y(i),z(i),ea(i),eb(i),ec(i)
-      !enddo
       do 48 i=1,n
-      th=ea(i)
-      ph=eb(i)
-      ps=ec(i)
-      sina=sin(th)
-      sinb=sin(ph)
-      sinc=sin(ps)
-      cosa=cos(th)
-      cosb=cos(ph)
-      cosc=cos(ps)
-      cosap=sina*sinc
-      if(abs(sina).gt.csinth)  then
-      lc(i)=1
-      call lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
-      else
-      lc(i)=2
-      ap=acos(cosap)
-      sinap=sin(ap)
-      coscp=cosa/sinap
-      cp=acos(coscp)
-      sincp=sina*cosc/sinap
-      if(sincp.lt.0.0d0) then
-      cp=pid-cp
-      end if
-      cosbp=-(cosc*sinb+cosa*cosb*sinc)/sinap
-      bp=acos(cosbp)
-      sinbp=(cosc*cosb-cosa*sinb*sinc)/sinap
-      if(sinbp.lt.0.0d0) then
-      bp=pid-bp
-      end if
-      ea(i)=ap
-      eb(i)=bp
-      ec(i)=cp
-      call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
-      end if
-48    continue
+!     Euler角
+!     (注)Goldsteinの定義に従っているはず。
+         th=ea(i)
+         ph=eb(i)
+         ps=ec(i)
+         sina=sin(th)
+         sinb=sin(ph)
+         sinc=sin(ps)
+         cosa=cos(th)
+         cosb=cos(ph)
+         cosc=cos(ps)
+         cosap=sina*sinc
+!     Euler角の角度の選び方を切り替える。
+!     (注)Euler角には特異点があり、その近傍では微分できないので、角度が特異点に近い場合には特異点のほうをずらす。
+         if(abs(sina).gt.csinth)  then
+            lc(i)=1
+            call lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
+         else
+            lc(i)=2
+!     Euler角のつけかえ。
+!     (注)どういう順序にしたのかはあとで解析する。
+            ap=acos(cosap)
+            sinap=sin(ap)
+            coscp=cosa/sinap
+            cp=acos(coscp)
+            sincp=sina*cosc/sinap
+            if(sincp.lt.0.0d0) then
+               cp=pid-cp
+            end if
+            cosbp=-(cosc*sinb+cosa*cosb*sinc)/sinap
+            bp=acos(cosbp)
+            sinbp=(cosc*cosb-cosa*sinb*sinc)/sinap
+            if(sinbp.lt.0.0d0) then
+               bp=pid-bp
+            end if
+            ea(i)=ap
+            eb(i)=bp
+            ec(i)=cp
+            call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
+         end if
+ 48   continue
       write(STDERR,1122)(lc(i),i=1,n)
 1122  format(65i2)
-      do 148 i=1,n
-      th=ea(i)
-      ph=eb(i)
-      ps=ec(i)
-      sina=sin(th)
-      sinb=sin(ph)
-      sinc=sin(ps)
-      cosa=cos(th)
-      cosb=cos(ph)
-      cosc=cos(ps)
-      if(lc(i).eq.1) then
-      ev(1,1)=rix*cosc**2+riy*sinc**2
-      ev(1,2)=(rix-riy)*sina*sinc*cosc
-      ev(1,3)=0.0d0
-      ev(2,2)=(rix*sinc**2+riy*cosc**2)*sina**2+riz*cosa**2
-      ev(2,3)=riz*cosa
-      ev(3,3)=riz
-      ev(2,1)=ev(1,2)
-      ev(3,1)=ev(1,3)
-      ev(3,2)=ev(2,3)
-      else
-      ev(1,1)=riy*cosc**2+riz*sinc**2
-      ev(1,2)=(riy-riz)*sina*sinc*cosc
-      ev(1,3)=0.0d0
-      ev(2,2)=(riy*sinc**2+riz*cosc**2)*sina**2+rix*cosa**2
-      ev(2,3)=rix*cosa
-      ev(3,3)=rix
-      ev(2,1)=ev(1,2)
-      ev(3,1)=ev(1,3)
-      ev(3,2)=ev(2,3)
-      end if
-      icon=1
-      call hoqrvw(ev,nr$,nthree,e,eps,vw,icon)
-      j1=3*i-2
-      j2=j1+1
-      j3=j2+1
-      ekv(j1)=1.0d0/sqrt(e(1))
-      ekv(j2)=1.0d0/sqrt(e(2))
-      ekv(j3)=1.0d0/sqrt(e(3))
-      ekm(1,1,i)=ev(1,1)
-      ekm(2,1,i)=ev(2,1)
-      ekm(3,1,i)=ev(3,1)
-      ekm(1,2,i)=ev(1,2)
-      ekm(2,2,i)=ev(2,2)
-      ekm(3,2,i)=ev(3,2)
-      ekm(1,3,i)=ev(1,3)
-      ekm(2,3,i)=ev(2,3)
-      ekm(3,3,i)=ev(3,3)
-  148 continue
-      do 58 i=1,nd$
-      do 58 j=1,nd$
-      sd(j,i)=0.0d0
-58    continue
+      do i=1,n
+         th=ea(i)
+         ph=eb(i)
+         ps=ec(i)
+         sina=sin(th)
+         sinb=sin(ph)
+         sinc=sin(ps)
+         cosa=cos(th)
+         cosb=cos(ph)
+         cosc=cos(ps)
+         if(lc(i).eq.1) then
+!     空間座標で表した慣性テンソル？
+            ev(1,1)=rix*cosc**2+riy*sinc**2
+            ev(1,2)=(rix-riy)*sina*sinc*cosc
+            ev(1,3)=0.0d0
+            ev(2,2)=(rix*sinc**2+riy*cosc**2)*sina**2+riz*cosa**2
+            ev(2,3)=riz*cosa
+            ev(3,3)=riz
+            ev(2,1)=ev(1,2)
+            ev(3,1)=ev(1,3)
+            ev(3,2)=ev(2,3)
+         else
+            ev(1,1)=riy*cosc**2+riz*sinc**2
+            ev(1,2)=(riy-riz)*sina*sinc*cosc
+            ev(1,3)=0.0d0
+            ev(2,2)=(riy*sinc**2+riz*cosc**2)*sina**2+rix*cosa**2
+            ev(2,3)=rix*cosa
+            ev(3,3)=rix
+            ev(2,1)=ev(1,2)
+            ev(3,1)=ev(1,3)
+            ev(3,2)=ev(2,3)
+         end if
+         icon=1
+!     ハウスホルダー法による固有値解析
+!     慣性主軸?
+!     (注)水の場合は、分子の慣性主軸は分子内座標の軸と一致しているから、計算する必要ないのでは？
+!     (注)ただ、決め打ちにしてしまうと、HDOなどが扱えなくなる。
+         call hoqrvw(ev,nr$,nthree,e,eps,vw,icon)
+         j1=3*i-2
+         j2=j1+1
+         j3=j2+1
+!     固有値
+         ekv(j1)=1.0d0/sqrt(e(1))
+         ekv(j2)=1.0d0/sqrt(e(2))
+         ekv(j3)=1.0d0/sqrt(e(3))
+!     固有ベクトル
+         ekm(1,1,i)=ev(1,1)
+         ekm(2,1,i)=ev(2,1)
+         ekm(3,1,i)=ev(3,1)
+         ekm(1,2,i)=ev(1,2)
+         ekm(2,2,i)=ev(2,2)
+         ekm(3,2,i)=ev(3,2)
+         ekm(1,3,i)=ev(1,3)
+         ekm(2,3,i)=ev(2,3)
+         ekm(3,3,i)=ev(3,3)
+      enddo
+      do i=1,nd$
+         do j=1,nd$
+!     ？
+            sd(j,i)=0.0d0
+         enddo
+      enddo 
+      ! Hessian?
       call drvtv !(rc,rc2,bxl,rl,rq,rq3,rq6,n,nn,n3)
       ep=ep/float(n)
       write(STDERR,*) 'energy = ',ep
-      do 777 i=1,n
-      i1=3*i-2
-      i2=i1+1
-      i3=i2+1
-      k1=n3+i1
-      k2=k1+1
-      k3=k2+1
-      do 777 j=1,n
-      j1=3*j-2
-      j2=j1+1
-      j3=j2+1
-      l1=n3+j1
-      l2=l1+1
-      l3=l2+1
-      t(1,1)=sd(l1,k1)
-      t(2,1)=sd(l2,k1)
-      t(3,1)=sd(l3,k1)
-      t(1,2)=sd(l1,k2)
-      t(2,2)=sd(l2,k2)
-      t(3,2)=sd(l3,k2)
-      t(1,3)=sd(l1,k3)
-      t(2,3)=sd(l2,k3)
-      t(3,3)=sd(l3,k3)
-      do 779 k=1,nr$
-      do 779 l=1,nr$
-      ss=0.0d0
-      do 778 m=1,nr$
-      ss=ss+t(l,m)*ekm(m,k,i)
-778   continue
-      s(l,k)=ss
-779   continue
-      do 769 k=1,nr$
-      do 769 l=1,nr$
-      ss=0.0d0
-      do 768 m=1,nr$
-      ss=ss+s(m,k)*ekm(m,l,j)
-768   continue
-      t(l,k)=ss
-769   continue
-      sd(l1,k1)=t(1,1)*ekv(j1)*ekv(i1)
-      sd(l2,k1)=t(2,1)*ekv(j2)*ekv(i1)
-      sd(l3,k1)=t(3,1)*ekv(j3)*ekv(i1)
-      sd(l1,k2)=t(1,2)*ekv(j1)*ekv(i2)
-      sd(l2,k2)=t(2,2)*ekv(j2)*ekv(i2)
-      sd(l3,k2)=t(3,2)*ekv(j3)*ekv(i2)
-      sd(l1,k3)=t(1,3)*ekv(j1)*ekv(i3)
-      sd(l2,k3)=t(2,3)*ekv(j2)*ekv(i3)
-      sd(l3,k3)=t(3,3)*ekv(j3)*ekv(i3)
-777   continue
-      do 877 i=1,n
-      i1=3*i-2
-      i2=i1+1
-      i3=i2+1
-      do 877 j=1,n
-      j1=3*j-2
-      j2=j1+1
-      j3=j2+1
-      k1=n3+j1
-      k2=k1+1
-      k3=k2+1
-      t(1,1)=sd(k1,i1)
-      t(2,1)=sd(k2,i1)
-      t(3,1)=sd(k3,i1)
-      t(1,2)=sd(k1,i2)
-      t(2,2)=sd(k2,i2)
-      t(3,2)=sd(k3,i2)
-      t(1,3)=sd(k1,i3)
-      t(2,3)=sd(k2,i3)
-      t(3,3)=sd(k3,i3)
-      do 869 k=1,nr$
-      do 869 l=1,nr$
-      ss=0.0d0
-      do 868 m=1,nr$
-      ss=ss+ekm(m,l,j)*t(m,k)
-868   continue
-      s(l,k)=ss
-869   continue
-       sd(k1,i1)=s(1,1)*ekv(j1)
-       sd(k2,i1)=s(2,1)*ekv(j2)
-       sd(k3,i1)=s(3,1)*ekv(j3)
-       sd(k1,i2)=s(1,2)*ekv(j1)
-       sd(k2,i2)=s(2,2)*ekv(j2)
-       sd(k3,i2)=s(3,2)*ekv(j3)
-       sd(k1,i3)=s(1,3)*ekv(j1)
-       sd(k2,i3)=s(2,3)*ekv(j2)
-       sd(k3,i3)=s(3,3)*ekv(j3)
-877   continue
-      do 888 i=1,n6
-      do 889 j=1,i
-      sd(j,i)=sd(i,j)
-889   continue
-888   continue
+      do i=1,n
+!     i1-i3は並進
+         i1=3*i-2
+         i2=i1+1
+         i3=i2+1
+!     k1-k3は回転
+         k1=n3+i1
+         k2=k1+1
+         k3=k2+1
+         do j=1,n
+!     j1-j3は並進
+            j1=3*j-2
+            j2=j1+1
+            j3=j2+1
+!     l1-l3は回転
+            l1=n3+j1
+            l2=l1+1
+            l3=l2+1
+!     回転-回転
+            t(1,1)=sd(l1,k1)
+            t(2,1)=sd(l2,k1)
+            t(3,1)=sd(l3,k1)
+            t(1,2)=sd(l1,k2)
+            t(2,2)=sd(l2,k2)
+            t(3,2)=sd(l3,k2)
+            t(1,3)=sd(l1,k3)
+            t(2,3)=sd(l2,k3)
+            t(3,3)=sd(l3,k3)
+!     行列tと行列ekm(i)の積をsに入れる
+            do k=1,nr$
+               do l=1,nr$
+                  ss=0.0d0
+                  do m=1,nr$
+                     ss=ss+t(l,m)*ekm(m,k,i)
+                  enddo
+                  s(l,k)=ss
+               enddo
+            enddo
+!     行列sと行列ekm(i)の積をtに入れる
+            do k=1,nr$
+               do l=1,nr$
+                  ss=0.0d0
+                  do m=1,nr$
+                     ss=ss+s(m,k)*ekm(m,l,j)
+                  enddo
+                  t(l,k)=ss
+               enddo
+            enddo
+!     sdにフィードバック(何それ)
+            sd(l1,k1)=t(1,1)*ekv(j1)*ekv(i1)
+            sd(l2,k1)=t(2,1)*ekv(j2)*ekv(i1)
+            sd(l3,k1)=t(3,1)*ekv(j3)*ekv(i1)
+            sd(l1,k2)=t(1,2)*ekv(j1)*ekv(i2)
+            sd(l2,k2)=t(2,2)*ekv(j2)*ekv(i2)
+            sd(l3,k2)=t(3,2)*ekv(j3)*ekv(i2)
+            sd(l1,k3)=t(1,3)*ekv(j1)*ekv(i3)
+            sd(l2,k3)=t(2,3)*ekv(j2)*ekv(i3)
+            sd(l3,k3)=t(3,3)*ekv(j3)*ekv(i3)
+         enddo
+      enddo
+      do i=1,n
+         i1=3*i-2
+         i2=i1+1
+         i3=i2+1
+         do j=1,n
+            j1=3*j-2
+            j2=j1+1
+            j3=j2+1
+            k1=n3+j1
+            k2=k1+1
+            k3=k2+1
+            t(1,1)=sd(k1,i1)
+            t(2,1)=sd(k2,i1)
+            t(3,1)=sd(k3,i1)
+            t(1,2)=sd(k1,i2)
+            t(2,2)=sd(k2,i2)
+            t(3,2)=sd(k3,i2)
+            t(1,3)=sd(k1,i3)
+            t(2,3)=sd(k2,i3)
+            t(3,3)=sd(k3,i3)
+!     行列ekmとtの積をsに入れる
+            do k=1,nr$
+               do l=1,nr$
+                  ss=0.0d0
+                  do m=1,nr$
+                     ss=ss+ekm(m,l,j)*t(m,k)
+                  enddo
+                  s(l,k)=ss
+               enddo
+            enddo
+            sd(k1,i1)=s(1,1)*ekv(j1)
+            sd(k2,i1)=s(2,1)*ekv(j2)
+            sd(k3,i1)=s(3,1)*ekv(j3)
+            sd(k1,i2)=s(1,2)*ekv(j1)
+            sd(k2,i2)=s(2,2)*ekv(j2)
+            sd(k3,i2)=s(3,2)*ekv(j3)
+            sd(k1,i3)=s(1,3)*ekv(j1)
+            sd(k2,i3)=s(2,3)*ekv(j2)
+            sd(k3,i3)=s(3,3)*ekv(j3)
+         enddo
+      enddo
+!     対称化
+      do i=1,n6
+         do j=1,i
+            sd(j,i)=sd(i,j)
+         enddo
+      enddo
 c     *        call hoqrvw(a,ka,n,e,eps,w,ind)                         *
 c     *          a   ....given real symmetric matrix.                  *
 c     *          ka  ....given adjustable dimension of a.              *
@@ -359,6 +423,7 @@ c     *             30000      ....parameter error.                    *
          write(14,*) i,sd(1,i)
       enddo
       icon=1
+!     Hessianの固有値解析
       call hoqrvw(sd,nd$,n6,fdi,eps,vw,icon)
 c     call dseig1(sds,n6,fdi,sd,nd$,ne,vw,icon)
       if(icon.ne.0) then
@@ -369,13 +434,13 @@ c     call dseig1(sds,n6,fdi,sd,nd$,ne,vw,icon)
       write(STDERR,610)
 610   format(2x,'eigen value in cm**(-1) ')
       write(STDERR,*) "DEBUG1"
-      do 772 i=1,n6
-      if(fdi(i).gt.0.0d0) then
-      fdi(i)=sqrt(fdi(i))*sw
-      else
-      fdi(i)=-sqrt(-fdi(i))*sw
-      end if
-772   continue
+      do i=1,n6
+         if(fdi(i).gt.0.0d0) then
+            fdi(i)=sqrt(fdi(i))*sw
+         else
+            fdi(i)=-sqrt(-fdi(i))*sw
+         end if
+      enddo
       write(STDERR,*) "DEBUG2"
       do i=1,n6
          write(STDOUT,*) i,fdi(i)
@@ -385,7 +450,12 @@ c     call dseig1(sds,n6,fdi,sd,nd$,ne,vw,icon)
       !write(13) fdi,sd,lc
       stop
       end
+
+
+
+
       subroutine lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
+!     Euler角規準1での、分子iの分子内原子座標(重心からの相対位置)を求める。
       implicit real*8(a-h,o-z)
       parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
       parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
