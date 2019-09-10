@@ -152,6 +152,8 @@ c     add end
       n3=n*3
       n6=n3+n3
 !     慣性モーメント。長さの単位はA、質量単位はg/mol
+!     (注)この時点で、分子内座標系の軸と、慣性主軸が一致することを前提としている。
+!     HDOを扱う場合には、主軸の選び方に注意する
       rix=(wo*ol*ol+2d0*wh*(hyl*hyl+hzl*hzl))/wm
       riy=(wo*ol*ol+2d0*wh*hzl*hzl)/wm
       riz=2d0*wh*hyl*hyl/wm
@@ -267,9 +269,9 @@ c     add end
          end if
          icon=1
 !     ハウスホルダー法による固有値解析
-!     慣性主軸?
-!     (注)水の場合は、分子の慣性主軸は分子内座標の軸と一致しているから、計算する必要ないのでは？
-!     (注)ただ、決め打ちにしてしまうと、HDOなどが扱えなくなる。
+!     (注)空間座標系での慣性主軸の算出?
+!     (注)分子内座標での主軸がわかっているなら、それを回転するだけではだめなのか？
+!     (注)実際、固有値3つはrix,riy,rizにとても近い(が分子ごとに違う)
          call hoqrvw(ev,nr$,nthree,e,eps,vw,icon)
          j1=3*i-2
          j2=j1+1
@@ -499,22 +501,28 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       common /cr/ fdi(nd$),sd(nd$,nd$)
       common /in/ lc(np$),n,nn,n3,n6
       common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+!     Goldstein 4-47
       sp12=-(sinc*cosb+cosa*sinb*cosc)
+!     sp12をa,b,cで微分したもの
       dda12=sina*sinb*cosc
       ddb12=sinc*sinb-cosa*cosb*cosc
       ddc12=-cosc*cosb+cosa*sinb*sinc
+!     それをさらにa,b,cで微分したもの
       daa12=cosa*sinb*cosc
       dab12=sina*cosb*cosc
       dac12=-sina*sinb*sinc
       dbb12=-sp12
       dbc12=cosc*sinb+cosa*cosb*sinc
       dcc12=-sp12
+!     Goldstein 4-47
       sp13=sina*sinb
+!     以下同様
       dda13=cosa*sinb
       ddb13=sina*cosb
       daa13=-sp13
       dab13=cosa*cosb
       dbb13=-sp13
+!     Goldstein 4-47
       sp22=-sinc*sinb+cosa*cosb*cosc
       dda22=-sina*cosb*cosc
       ddb22=-sinc*cosb-cosa*sinb*cosc
@@ -525,27 +533,32 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       dbb22=-sp22
       dbc22=-cosc*cosb+cosa*sinb*sinc
       dcc22=-sp22
+!     Goldstein 4-47
       sp23=-sina*cosb
       dda23=-cosa*cosb
       ddb23=sina*sinb
       daa23=-sp23
       dab23=cosa*sinb
       dbb23=-sp23
+!     Goldstein 4-47
       sp32=sina*cosc
       dda32=cosa*cosc
       ddc32=-sina*sinc
       daa32=-sp32
       dac32=-cosa*sinc
       dcc32=-sp32
+!     Goldstein 4-47
       sp33=cosa
       dda33=-sina
       daa33=-cosa
+!     他のsp??要素は水分子の場合には使わないので計算しない
       sy12=sp12*hyl
       sy22=sp22*hyl
       sy32=sp32*hyl
       sz13=sp13*hzl
       sz23=sp23*hzl
       sz33=sp33*hzl
+!     各原子の座標
       xx1(i)=sy12+sz13
       yy1(i)=sy22+sz23
       zz1(i)=sy32+sz33
@@ -558,6 +571,11 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       xx4(i)=sp13*cl
       yy4(i)=sp23*cl
       zz4(i)=sp33*cl
+!     原子座標の角度一次微分
+!     (注)分子内座標に回転行列を掛けると、回転した分子の中の原子の位置が求まる。
+!     (注)その角度微分を求めることは、あらかじめ角度で微分した回転行列を掛けることと等価。
+!     (注)以下の計算は原子の位置の計算とほぼ同様。
+!     (注)しかし…要素の計算を書き並べるのはチェックがとてもしんどい。
       a12h=dda12*hyl
       a22h=dda22*hyl
       a32h=dda32*hyl
@@ -617,6 +635,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       ab23o=dab23*ol
       bb13o=dbb13*ol
       bb23o=dbb23*ol
+!     原子座標の角度a微分、順にHHOM
       ax1(i)=a12h+a13h
       ay1(i)=a22h+a23h
       az1(i)=a32h+a33h
@@ -629,6 +648,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       ax4(i)=a13c
       ay4(i)=a23c
       az4(i)=a33c
+!     bによる微分。以下同様。
       bx1(i)=b12h+b13h
       by1(i)=b22h+b23h
       bx2(i)=-b12h+b13h
@@ -649,6 +669,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       cx4(i)=0.0d0
       cy4(i)=0.0d0
       cz4(i)=0.0d0
+!     以下は二階微分項
       aax1(i)=aa12h+aa13h
       aay1(i)=aa22h+aa23h
       aaz1(i)=aa32h+aa33h
@@ -711,8 +732,12 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       bcy4(i)=0.0d0
       return
       end
+
+
+
       subroutine lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,
      *               hyl,hzl,ol,cl,i)
+!     Euler角規準2での、分子iの分子内原子座標(重心からの相対位置)を求める。
       implicit real*8(a-h,o-z)
       parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
       parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
@@ -1012,7 +1037,13 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       bcy4(i)=bc23c
       return
       end
+
+
+
       subroutine drvtv
+!     2つの分子の原子間距離を、相対重心位置と、それぞれの分子の回転
+!     行列で書き下し、エネルギーを求め、それを重心位置と、回転角で
+!     二階微分する。結果は6N x 6N行列となる。
       implicit real*8(a-h,o-z)
       parameter (lp$=%%NMOL%%,np$=%%NMOL%%)
       parameter (nnp$=np$*(np$-1)/2,m$=6,nd$=m$*np$,nr$=3)
