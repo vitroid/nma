@@ -4,3 +4,5 @@ fort.*
 *.err
 *.xx
 Rotation.*
+*.o
+nma4x320.F

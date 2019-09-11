@@ -12,16 +12,15 @@ FFLAG    =  -DSTDERR=0 -DSTDOUT=6 -fdollar-ok -ffixed-line-length-0 -m64 -O6 -fd
 LDFLAG   = $(FFLAG) #-Vaxlib -pthread
 CXXFLAGS=-O -static
 #
-%.xx : %.o
+%.xx : %.o Rotation.o
 	$(FC) $< -o $@ $(LDFLAG)
 %.o :%.F
 	$(FC) $(FFLAG) -c $<
-%.o :%.F90
+%.o :%.f90
 	$(FC) $(FFLAG) -c $<
 
 nma4x%.F: nma.F.in
 	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/17.31d0/g" $< > $@
-	chmod a-w $@
 
 %.nma: %.nx3a ./nma4x320.xx
 	./nma4x320.xx < $< > $@ 2> $@.err
