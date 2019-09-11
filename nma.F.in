@@ -500,7 +500,10 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
      *          ccz1(np$),ccz2(np$),ccz3(np$),ccz4(np$)
       common /cr/ fdi(nd$),sd(nd$,nd$)
       common /in/ lc(np$),n,nn,n3,n6
-      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
+      common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5
+     $     ,p6
+      real*8, dimension(3,3) :: rot
+      real*8, dimension(3,4) :: intra, rotated
 !     Goldstein 4-47
       sp12=-(sinc*cosb+cosa*sinb*cosc)
 !     sp12をa,b,cで微分したもの
@@ -730,6 +733,34 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       bcy3(i)=0.0d0
       bcx4(i)=0.0d0
       bcy4(i)=0.0d0
+!     以下、上と同じ内容をgenRで生成した関数で再現できるかどうかのチェック
+      call RotMat(ea(i),eb(i),ec(i),rot)
+      print *, rot(1,2)
+      print *, sp12
+      call Rot_a(ea(i),eb(i),ec(i),rot)
+      print *, rot(1,2)
+      print *, dda12
+      intra(1,1) = 0
+      intra(2,1) = hyl
+      intra(3,1) = hzl
+      intra(1,2) = 0
+      intra(2,2) =-hyl
+      intra(3,2) = hzl
+      intra(1,3) = 0
+      intra(2,3) = 0
+      intra(3,3) = ol
+      intra(1,4) = 0
+      intra(2,4) = 0
+      intra(3,4) = cl
+      rotated = matmul(rot, intra)
+      print *, rotated(1,1), rotated(2,1), rotated(3,1)
+      print *, ax1(i), ay1(i), az1(i)
+      call Rot_bc(ea(i),eb(i),ec(i),rot)
+      rotated = matmul(rot, intra)
+      print *, rotated(1,1), rotated(2,1), rotated(3,1)
+      print *, bcx1(i), bcy1(i)
+!     すべて問題なし。
+      stop
       return
       end
 

@@ -13,7 +13,7 @@ LDFLAG   = $(FFLAG) #-Vaxlib -pthread
 CXXFLAGS=-O -static
 #
 %.xx : %.o Rotation.o
-	$(FC) $< -o $@ $(LDFLAG)
+	$(FC) $^ -o $@ $(LDFLAG)
 %.o :%.F
 	$(FC) $(FFLAG) -c $<
 %.o :%.f90
@@ -23,6 +23,9 @@ nma4x%.F: nma.F.in
 	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/17.31d0/g" $< > $@
 
 %.nma: %.nx3a ./nma4x320.xx
-	./nma4x320.xx < $< > $@ 2> $@.err
+	./nma4x320.xx < $< # > $@ 2> $@.err
+test:
+	make 1234.0.nma
+
 Rotation.f90: genR.py
 	python genR.py
