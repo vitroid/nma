@@ -1,6 +1,6 @@
 #FC	= ifc
 FC	= gfortran
-#FC	= f90
+# F90	= f90
 #
 SOURCE = nma.F
 OBJS = ${SOURCE:.F=.o}
@@ -15,6 +15,8 @@ CXXFLAGS=-O -static
 %.xx : %.o
 	$(FC) $< -o $@ $(LDFLAG)
 %.o :%.F
+	$(FC) $(FFLAG) -c $<
+%.o :%.F90
 	$(FC) $(FFLAG) -c $<
 
 nma4x%.F: nma.F.in
