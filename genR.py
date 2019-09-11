@@ -26,6 +26,7 @@ result = codegen([('R', R),
                   ('Rbb', diff(R,b,b)),
                   ('Rbc', diff(R,b,c)),
                   ('Rcc', diff(R,c,c))],
+                 prefix='Rotation',
                  language='f95',
                  project='NMA',
                  to_files=True)

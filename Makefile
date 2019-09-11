@@ -25,5 +25,5 @@ nma4x%.F: nma.F.in
 
 %.nma: %.nx3a ./nma4x320.xx
 	./nma4x320.xx < $< > $@ 2> $@.err
-R.f90: genR.py
+Rotation.f90: genR.py
 	python genR.py
