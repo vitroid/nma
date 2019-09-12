@@ -297,8 +297,9 @@ c     add end
             sd(j,i)=0.0d0
          enddo
       enddo 
-      ! Hessian?
-      call drvtv !(rc,rc2,bxl,rl,rq,rq3,rq6,n,nn,n3)
+      ! Hessian
+      call drvtv                !(rc,rc2,bxl,rl,rq,rq3,rq6,n,nn,n3)
+!     ここから、mass tensorをかける処理、のはず。
       ep=ep/float(n)
       write(STDERR,*) 'energy = ',ep
       do i=1,n

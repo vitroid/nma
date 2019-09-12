@@ -1,8 +1,6 @@
-# 感想・展望など
+# 解読
 
-## 解読
-
-### 第二回転規準
+## 第二回転規準
 
 lc2の行列の構造から、回転順序を推定する。
 
@@ -14,6 +12,8 @@ lc2のsp??変数は回転行列の要素を示しているので、これを抽�
 ? sinap*sincp sinap*coscp
 
 ```
+
+?の部分は、水の場合には必要がないので、計算すらしていない。
 
 これを睨みながら、これにあう回転行列の構成を試行錯誤する。
 
@@ -32,7 +32,7 @@ G = Matrix([[-sin(bp),cos(bp),0],
 G*F*E
 ```
 
-つまり、最初にx軸、次にy軸、最後にz軸で回転する。しかも、角度の基準が変。
+つまり、最初にx軸、次にy軸、最後にz軸で回転する。しかも、角度の基準が変。FとGは角度0でも単位行列にならないのでおかしい。でも回転順序が問題にはならないので、このまま進める。
 
 lc1のほうは、下に書いてある通りで、Goldsteinの定義のまま。
 
@@ -43,6 +43,89 @@ lc1のほうは、下に書いてある通りで、Goldsteinの定義のまま�
 3. 要素(1,1)を比較し、`sin(ap)*sin(bp) = -sin(b)*sin(c)*cos(a) + cos(b)*cos(c)`から`bp`を求める。
 
 という手順で`(ap,bp,cp)`を求めている。この手続きはこのまま採用するしかないだろう。
+
+## 相互作用の一階微分
+
+相互作用の記号演算を考える。
+
+回転行列$\mathbf{R}_i$は角度$\mathbf{\theta}_i=(a_i,b_i,c_i)$でできている。
+
+原子$j$の分子内座標を$\mathbf{w}_{ij}$、分子の重心位置を$\mathbf{v}_i=(x_i,y_i,z_i)^t$とすると、原子$j$の空間位置$\mathbf{r}_{ij}$は$\mathbf{r}_{ij}=\mathbf{v}_i+\mathbf{R}_i\cdot \mathbf{w}_{ij}$と書ける。
+
+さらに相互作用は$\mathbf{r}_{ij}$の関数として書かれる。こうして書かれた相互作用は、$\mathbf{v}_i$や$\mathbf{R}_i$の各要素で微分することができる。
+
+ポテンシャルエネルギーの関数を$\phi$としよう。$i$分子と、$k$分子の相互作用はこんな感じで書ける。
+
+$$U_{ik}=\sum_j\sum_l \phi_{jl}(\mathbf{r}_{ij}-\mathbf{r}_{kl})$$
+
+### 並進
+分子の並進座標$\mathbf{r}_i$による一階微分は力。原子間距離を$\mathbf{r}_{ij}-\mathbf{r}_{kl}=\mathbf{r}$、$|\mathbf{r}|=r$と略記すると、
+
+$${\partial \phi_{jl}\over \partial \mathbf{r}_i}={\partial r \over \partial \mathbf{r}_i}\cdot{\partial \phi_{jl}\over \partial r}$$
+$${\partial r \over \partial \mathbf{r}_i}={\partial \left|\mathbf{r}\right|^2 \over \partial \mathbf{r}_i}\cdot{\partial \sqrt{r^2} \over \partial (r^2)}$$
+$${\partial \left|\mathbf{r}\right|^2 \over \partial \mathbf{r}_i}=2\mathbf{r}$$
+$${\partial \sqrt{r^2} \over \partial (r^2)}={1\over 2r}$$
+
+つまり、
+$${\partial r \over \partial \mathbf{r}_i}={\mathbf{r} \over r}$$
+
+これらをあわせると、
+$${\partial \phi_{jl}\over \partial \mathbf{r}_i}={\mathbf{r} \over r}\cdot{\partial \phi_{jl}(r)\over \partial r}$$
+
+### 回転
+
+次に角度について。オイラー角三つをまとめて$\mathbf{\theta}_i$と書く。分子の回転角$\mathbf{\theta}_i$による一階微分はトルク。
+
+$${\partial \phi_{jl}\over \partial \mathbf{\theta}_i}={\partial r \over \partial \mathbf{\theta}_i}\cdot{\partial \phi_{jl}\over \partial r}$$
+$${\partial r \over \partial \mathbf{\theta}_i}={\partial \left|\mathbf{r}\right|^2 \over \partial \mathbf{\theta}_i}\cdot{\partial \sqrt{r^2} \over \partial (r^2)}$$
+$${\partial r^2 \over \partial \mathbf{\theta}_i}={\partial \over \partial \mathbf{\theta}_i}\left(\mathbf{v}_i+\mathbf{R}_i\cdot \mathbf{w}_j-\mathbf{v}_k-\mathbf{R}_k\cdot \mathbf{w}_l\right)^2$$
+$$=2\mathbf{v}_i{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j+2{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j\cdot \mathbf{R}_i\cdot \mathbf{w}_j-2{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j\cdot(\mathbf{v}_k+\mathbf{R}_k\cdot \mathbf{w}_l)$$
+$$=2\left(\mathbf{v}_i+\mathbf{R}_i\cdot \mathbf{w}_j-\mathbf{v}_k-\mathbf{R}_k\cdot \mathbf{w}_l\right)\cdot{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j$$
+$$=2\mathbf{r}\cdot{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j$$
+
+つまり、
+$${\partial r \over \partial \mathbf{\theta}_i}={ \mathbf{r} \over  r}\cdot{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j$$
+
+これらをあわせると、
+$${\partial \phi_{jl}\over \partial \mathbf{\theta}_i}={ \mathbf{r} \over  r}\cdot{\partial \mathbf{R}_i\over \partial \mathbf{\theta}_i}\cdot \mathbf{w}_j{\partial \phi_{jl}(r)\over \partial r}$$
+
+回転行列のオイラー角による微分はRotation.ipynbですでに求めた。
+
+## 相互作用の二階微分
+
+Hessianの計算は面倒だが、ここまでに使った式を流用できるはず。
+
+### 並進・並進
+
+#### 同一変数の場合
+ベクトルでの微分で表記するとややこしいので、成分表記にする。
+
+$${\partial^2 \phi_{jl}(r)\over \partial x_i^2}=\
+{\partial\over\partial x_i}\left({r_x \over r}\cdot{\partial \phi_{jl}(r)\over \partial r}\right)$$
+
+ただし$r_x$は$\mathbf{r}$の$x$成分。
+
+$${\partial r_x\over\partial x_i}=1$$
+$${\partial r\over\partial x_i}={x_i\over r}$$
+$${\partial\over\partial x_i}\left({\partial \phi_{jl}(r)\over \partial r}\right)=\
+{\partial r\over\partial x_i}\left({\partial^2 \phi_{jl}(r)\over \partial r^2}\right)$$
+$$={x_i\over r}\left({\partial^2 \phi_{jl}(r)\over \partial r^2}\right)$$
+これらを組みあわせると、
+$${\partial^2 \phi_{jl}(r)\over \partial x_i^2}={1\over r^2}\left(r+{r_x x_i\over r}\right){\partial \phi_{jl}(r)\over \partial r}+{r_x x_i\over r^2}{\partial^2 \phi_{jl}(r)\over \partial r^2}$$
+
+にわかには信じられない。
+
+`Sympy`でこの展開をできないか。
+
+#### 異なる変数の場合
+
+
+# 感想・展望など
+
+集中すれば一週間ぐらいで移植できそうだ。これができれば、適用できる分子や混合物の範囲がひろがる。
+
+
+
 
 ## 簡潔にするために
 
