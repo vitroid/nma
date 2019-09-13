@@ -91,41 +91,45 @@ $${\partial \phi_{jl}\over \partial \mathbf{\theta}_i}={ \mathbf{r} \over  r}\cd
 
 回転行列のオイラー角による微分はRotation.ipynbですでに求めた。
 
-## 相互作用の二階微分
+二階微分はInteraction.ipynbでSympyを使って導出した。
 
-Hessianの計算は面倒だが、ここまでに使った式を流用できるはず。
-
-### 並進・並進
-
-#### 同一変数の場合
-ベクトルでの微分で表記するとややこしいので、成分表記にする。
-
-$${\partial^2 \phi_{jl}(r)\over \partial x_i^2}=\
-{\partial\over\partial x_i}\left({r_x \over r}\cdot{\partial \phi_{jl}(r)\over \partial r}\right)$$
-
-ただし$r_x$は$\mathbf{r}$の$x$成分。
-
-$${\partial r_x\over\partial x_i}=1$$
-$${\partial r\over\partial x_i}={x_i\over r}$$
-$${\partial\over\partial x_i}\left({\partial \phi_{jl}(r)\over \partial r}\right)=\
-{\partial r\over\partial x_i}\left({\partial^2 \phi_{jl}(r)\over \partial r^2}\right)$$
-$$={x_i\over r}\left({\partial^2 \phi_{jl}(r)\over \partial r^2}\right)$$
-これらを組みあわせると、
-$${\partial^2 \phi_{jl}(r)\over \partial x_i^2}={1\over r^2}\left(r+{r_x x_i\over r}\right){\partial \phi_{jl}(r)\over \partial r}+{r_x x_i\over r^2}{\partial^2 \phi_{jl}(r)\over \partial r^2}$$
-
-にわかには信じられない。
-
-`Sympy`でこの展開をできないか。
-
-#### 異なる変数の場合
 
 
 # 感想・展望など
 
-集中すれば一週間ぐらいで移植できそうだ。これができれば、適用できる分子や混合物の範囲がひろがる。
+## 計算の手順
 
+手順を再考する。
 
+* あらかじめ分子はQuenchされ、重心位置とオイラー角は与えられている。
+* すると、各原子対間の相互作用$\phi$もその距離による微分$\phi_r$、二階微分$\phi_{rr}$も固定され変動しない定数と言える。
+* さらに、回転行列の微分${\partial\mathbf{R}\over \partial a_i}$なども定まる。
+* ヘシアンは、全エネルギー$U$を、2つの座標変数で微分したものである。Uにはいろんな分子間の相互作用がすべてつめこまれているが、微分に関与するのは2つの座標変数が属する分子の番号$i$と$k$が含まれる項のみである。
+* だから、ループを適切に分割すれば(これが大切)、プログラムは簡潔に書けるはず。ヘシアン行列の彩色を一度絵にしてみよう。
 
+| |x1| y1 | z1 | x2 | y2 | z2 | a1 | b1 | c1 | a2 | b2 | c2 |
+|----|----|----|----|----|----|----|----|----|----|----|----|----|
+|x1|A|B|B|C|C|C|D|D|D|E|E|E|
+|y1|B|A|B|C|C|C|D|D|D|E|E|E|
+|z1|B|B|A|C|C|C|D|D|D|E|E|E|
+|x2|C|C|C|A|B|B|E|E|E|D|D|D|
+|y2|C|C|C|B|A|B|E|E|E|D|D|D|
+|z2|C|C|C|B|B|A|E|E|E|D|D|D|
+|a1|D|D|D|E|E|E|F|G|G|H|H|H|
+|b1|D|D|D|E|E|E|G|F|G|H|H|H|
+|c1|D|D|D|E|E|E|G|G|F|H|H|H|
+|a2|E|E|E|D|D|D|H|H|H|F|G|G|
+|b2|E|E|E|D|D|D|H|H|H|G|F|G|
+|c2|E|E|E|D|D|D|H|H|H|G|G|F|
+
+    A. dxixi
+    B. dxiyi
+    C. dxiyk
+    D. dxiai
+    E. dxiak
+    F. daiai
+    G. daibi
+    H. daibk
 
 ## 簡潔にするために
 
@@ -174,3 +178,6 @@ test_matmul.f90で見る限りそれで問題ない。
 
 固有値計算が最大のボトルネックになると予想されるが、そこはNumpyを使えばFortanなみ(GPUなどが使えるようになったらそれ以上)に速いので、ほかの手間を考えれば、Fortranで書く必然性はないと言えよう。(いざとなったらそこだけFortranにすればいい。)
 
+## 三体力を同じように扱えるか
+
+Sympyにやらせればできると思うぞ。ただし、
