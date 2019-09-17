@@ -60,7 +60,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
 !     (注)cgs単位系
       data bk,anum/1.38054d-16,6.0225d+23/
 !     TIP4Pの電荷とLennard-Jones力の定数。単位は素電荷とkcal/mol
-      data qq,ad1,ad2/0.535d0,6.95d+5,6.00d+2/
+!     data qq,ad1,ad2/0.535d0,6.95d+5,6.00d+2/
 !     TIP4Pの幾何定数。単位は度とA
       data angle,holen,colen/104.52d0,0.9572d0,0.15d0/
 !     ??
@@ -96,6 +96,9 @@ c     add end
          ad1 = 4*eee*sss**12/uj
          ad2 = 4*eee*sss**6/uj
       end if
+!     チェックのため、LJをなくす
+      ad1 = 0d0
+      ad2 = 0d0
 !     円周率
       pi=4.0d0*atan(1.0d0)
 !     3。
@@ -299,6 +302,12 @@ c     add end
       enddo 
       ! Hessian
       call drvtv                !(rc,rc2,bxl,rl,rq,rq3,rq6,n,nn,n3)
+!     Hessian matrix? とりあえず表示させてみる。
+      write(STDOUT,*) 'sd ------------'
+      do i=1,12
+         write(STDOUT,'(12(f7.4,1x))') (sd(i,j), j=1,12)
+      enddo
+      write(STDOUT,*) 'sd ------------'
 !     ここから、mass tensorをかける処理、のはず。
       ep=ep/float(n)
       write(STDERR,*) 'energy = ',ep
@@ -562,7 +571,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       sz13=sp13*hzl
       sz23=sp23*hzl
       sz33=sp33*hzl
-!     各原子の座標
+!     各原子の分子内座標
       xx1(i)=sy12+sz13
       yy1(i)=sy22+sz23
       zz1(i)=sy32+sz33
@@ -754,6 +763,8 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       intra(2,4) = 0
       intra(3,4) = cl
       rotated = matmul(rot, intra)
+      print *, "intra"
+      print *, intra
       print *, rotated(1,1), rotated(2,1), rotated(3,1)
       print *, ax1(i), ay1(i), az1(i)
       call Rot_bc(ea(i),eb(i),ec(i),rot)
@@ -761,7 +772,6 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       print *, rotated(1,1), rotated(2,1), rotated(3,1)
       print *, bcx1(i), bcy1(i)
 !     すべて問題なし。
-      stop
       return
       end
 
@@ -1121,9 +1131,11 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       common /dr/ rc,bx,by,bz,rc2,rl,rq,rq3,rq6,ep,emupid,p1,p2,p3,p4,p5,p6
       ep=0.0d0
       do i=1,nn
+!     重心位置
          xx=x(i)
          yy=y(i)
          zz=z(i)
+!     原子の分子内相対座標
          xl1=xx1(i)
          yl1=yy1(i)
          zl1=zz1(i)
@@ -1136,6 +1148,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
          xl4=xx4(i)
          yl4=yy4(i)
          zl4=zz4(i)
+!     pointers
          nti1=3*i-2
          nri1=n3+nti1
          nri2=nri1+1
@@ -1144,17 +1157,23 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
          nti3=nti2+1
 *voption novec
          do j=i+1,n
+!     重心相対ベクトル
             dx=xx-x(j)
             dy=yy-y(j)
             dz=zz-z(j)
+!     セル形状でまるめる
             dx = dx - dnint(dx/bx)*bx
             dy = dy - dnint(dy/by)*by
             dz = dz - dnint(dz/bz)*bz
+!     軸方向相対距離の二乗
             sx=dx*dx
             sy=dy*dy
             sz=dz*dz
+!     重心間距離の二乗
             r2=sx+sy+sz
+!     遠すぎる対は無視
             if(r2.gt.rc2) cycle
+!     原子の分子内相対座標
             xk1=xx1(j)
             yk1=yy1(j)
             zk1=zz1(j)
@@ -1167,6 +1186,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             xk4=xx4(j)
             yk4=yy4(j)
             zk4=zz4(j)
+!     分子jの重心を原点とした、分子iの原子の位置
             dx1=dx+xl1
             dy1=dy+yl1
             dz1=dz+zl1
@@ -1180,6 +1200,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             dy4=dy+yl4
             dz4=dz+zl4
             rr=sqrt(r2)
+!     cutoff関数が有効な範囲か
             if(rr.gt.rl) then
                rsi=1.0d0/r2
                ri=1.0d0/rr
@@ -1206,27 +1227,44 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
                syz=dsfrsi*yz
                szx=dsfrsi*zx
             end if
-c ::::::: first and second derivatives for each site
+c     ::::::: first and second derivatives for each site
+!     原子1同士の距離
             dx=dx1-xk1
             dy=dy1-yk1
             dz=dz1-zk1
+            print *, "H1-H1"
+            print *, dx,dy,dz
             sx=dx*dx
             sy=dy*dy
             sz=dz*dz
+!     1/r^2
             rsi=1.0d0/(sx+sy+sz)
+!     1/r
             ri=sqrt(rsi)
+!     -1/r^2
             rsim=-rsi
+!     1/r^3
             rti=ri*rsi
+!     1/r^5
             rfi=rsi*rti
+!     cross product
             xy=dx*dy
             yz=dy*dz
             zx=dz*dx
+!     -1/r^5
             rtim=-rti
+!     -R/r^5
             ddx=rtim*dx
             ddy=rtim*dy
             ddz=rtim*dz
+!     ax1は1番目の原子の座標の角度a微分。松本式でのs_a
+!     raiは{\mathbf{r}\over r}\cdot{\partial\mathbf{R}_i\over\partial
+!     a_i}\cdot\mathbf{w}_jに相当する。これに相互作用phiのr微分をかけ、
             rai=ri*(ax1(i)*dx+ay1(i)*dy+az1(i)*dz)
             ddai=rsim*rai
+!     必要ならさらに切断関数をかけると一次微分が得られる。
+!     ここでは、相互作用phiは水素2つが1Aの距離にある時を1とする単位系で
+!     あらわされている。一回微分は-1/r^2、つまりrsimである。
             raj=ri*(ax1(j)*dx+ay1(j)*dy+az1(j)*dz)
             ddaj=rsim*raj
             rbi=ri*(bx1(i)*dx+by1(i)*dy)
@@ -1237,14 +1275,20 @@ c ::::::: first and second derivatives for each site
             ddci=rsim*rci
             rcj=ri*(cx1(j)*dx+cy1(j)*dy+cz1(j)*dz)
             ddcj=rsim*rcj
+!     3/r^5 何に使うのか。
             rfi3=rfi*3.0d0
+!     3/r^5 * dx**2 - 1/r^3
             dxx=rfi3*sx+rtim
             dyy=rfi3*sy+rtim
             dzz=rfi3*sz+rtim
+!     これも何に使うのか不明
             dxy=rfi3*xy
             dyz=rfi3*yz
             dzx=rfi3*zx
+!     3/r
+!     3は、おそらく**1の第一項と第二項の和から来るのだが・・・
             ri3=3.0d0*ri
+!     3 dx / r
             ri3x=dx*ri3
             ri3y=dy*ri3
             ri3z=dz*ri3
@@ -1267,6 +1311,7 @@ c ::::::: first and second derivatives for each site
             dzci=(ri3z*rci-cz1(i))*rti
             dzcj=(ri3z*rcj-cz1(j))*rti
             rti3=3.0d0*rti
+!     **1にでてくる項。同じ分子、同じ角変数で2階微分
             daai=rtim*(ax1(i)*ax1(i)+ay1(i)*ay1(i)+az1(i)*az1(i)
      *           +dx*aax1(i)+dy*aay1(i)+dz*aaz1(i))
      *           +rti3*rai*rai
@@ -1331,6 +1376,8 @@ c ::::::: first and second derivatives for each site
             fdbj=ddbj
             fdcj=ddcj
             sdxx=dxx
+            print *,"dxx 1 1"
+            print *,dxx
             sdyy=dyy
             sdzz=dzz
             sdxy=dxy
@@ -1501,6 +1548,8 @@ c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 1 2"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -1671,6 +1720,8 @@ c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 2 1"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -1841,6 +1892,8 @@ c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 2 2"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2011,6 +2064,8 @@ c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 1 4"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2181,6 +2236,8 @@ c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 2 4"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2351,6 +2408,8 @@ c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 4 1"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2521,6 +2580,8 @@ c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 4 2"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2691,6 +2752,8 @@ c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 4 4"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2863,6 +2926,8 @@ c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+            print *,"dxx 3 3"
+            print *,dxx
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
