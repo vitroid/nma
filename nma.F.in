@@ -322,7 +322,7 @@ c     add end
       write(STDOUT,*) 'sd ------------'
 !     ここから、mass tensorをかける処理、のはず。
       ep=ep/float(n)
-      write(STDERR,*) 'energy = ',ep
+      write(STDOUT,*) 'energy = ',ep
       do i=1,n
 !     i1-i3は並進
          i1=3*i-2
