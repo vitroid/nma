@@ -97,8 +97,8 @@ c     add end
          ad2 = 4*eee*sss**6/uj
       end if
 !     チェックのため、LJをなくす
-!     ad1 = 0d0
-!     ad2 = 0d0
+!      ad1 = 0d0
+!      ad2 = 0d0
 !     円周率
       pi=4.0d0*atan(1.0d0)
 !     3。
