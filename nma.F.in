@@ -238,7 +238,8 @@ c     add end
             call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
          end if
  48   continue
-      write(STDERR,1122)(lc(i),i=1,n)
+      print *, "LC"
+      write(STDOUT,1122)(lc(i),i=1,n)
  1122 format(65i2)
 !     ***1
       do i=1,n
