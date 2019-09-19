@@ -1235,6 +1235,10 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             rr=sqrt(r2)
 !     cutoff関数が有効な範囲か
             if(rr.gt.rl) then
+               if ( i .eq. 1) then
+                  print *, "BORDER", j,rr
+!                  stop
+               endif
                rsi=1.0d0/r2
                ri=1.0d0/rr
                rrl=rr-rc

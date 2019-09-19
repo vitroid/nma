@@ -20,7 +20,7 @@ CXXFLAGS=-O -static
 	$(FC) $(FFLAG) -c $<
 
 nma4x%.F: nma.F.in
-	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/17.31d0/g" $< > $@
+	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/8.5d0/g" $< > $@
 
 %.nma: %.nx3a ./nma4x320.xx
 	./nma4x320.xx < $< # > $@ 2> $@.err
