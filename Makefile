@@ -21,11 +21,17 @@ CXXFLAGS=-O -static
 
 nma4x%.F: nma.F.in
 	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/8.5d0/g" $< > $@
+nma42kx%.F: nma.F.in
+	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/2005/g" -e "s/%%RCOA%%/8.5d0/g" $< > $@
 
 %.nma: %.nx3a ./nma4x320.xx
 	./nma4x320.xx < $< # > $@ 2> $@.err
+%.nma2: test2.txt ./nmarhtp405
+	./nmarhtp405 < $< # > $@ 2> $@.err
 test:
 	make 1234.0.nma
 
 Rotation.f90: genR.py
 	python genR.py
+diff:
+	diff nmarhtp405.original  nmarhtp405.f

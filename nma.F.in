@@ -93,8 +93,11 @@ c     add end
          qq = 0.5564d0
          eee = 0.77490376061127586d0
          sss = 3.1589d0
-         ad1 = 4*eee*sss**12/uj
-         ad2 = 4*eee*sss**6/uj
+         ad1 = 4*eee*sss**12/uj*1000
+         ad2 = 4*eee*sss**6/uj*1000
+         ! TANAKA
+         AD1=7.313907049d5
+         AD2=7.360955117d2
       end if
 !     チェックのため、LJをなくす
 !      ad1 = 0d0
@@ -112,6 +115,7 @@ c     add end
 !     ad1, ad2は水のLJ相互作用の定数。エネルギー計算をクーロン相互作用の単位で統一する。
       p1=ad1/qs
       p2=-ad2/qs
+      print *,"p1 p2",p1,p2
 !     微分ででてくる定数。
       p3=-p1*12.0d0
       p4=-p2*6.0d0
@@ -211,6 +215,7 @@ c     add end
          cosap=sina*sinc
 !     Euler角の角度の選び方を切り替える。
 !     (注)Euler角には特異点があり、その近傍では微分できないので、角度が特異点に近い場合には特異点のほうをずらす。
+         csinth = 0.0
          if(abs(sina).gt.csinth)  then
             lc(i)=1
             call lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
@@ -317,7 +322,7 @@ c     add end
 !     Hessian matrix? とりあえず表示させてみる。
       write(STDOUT,*) 'sd ------------'
       do i=1,12
-         write(STDOUT,'(12(f7.4,1x))') (sd(i,j), j=1,12)
+         write(STDOUT,'(12(e10.3,1x))') (sd(i,j), j=1,12)
       enddo
       write(STDOUT,*) 'sd ------------'
 !     ここから、mass tensorをかける処理、のはず。
@@ -1204,6 +1209,7 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             sz=dz*dz
 !     重心間距離の二乗
             r2=sx+sy+sz
+            print *,"R",i,j,R2**0.5
 !     遠すぎる対は無視
             if(r2.gt.rc2) cycle
 !     原子の分子内相対座標
@@ -1460,6 +1466,7 @@ c     ::::::: first and second derivatives for each site
             sdcbk=dcbk
             sdcck=dcck
             epi=ri
+            print *,"ri11",ri
 c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx1-xk2
             dy=dy1-yk2
@@ -1632,6 +1639,7 @@ c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+            print *,"ri12",ri
 c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk1
             dy=dy2-yk1
@@ -1804,6 +1812,7 @@ c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+            print *,"ri21",ri
 c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk2
             dy=dy2-yk2
@@ -1976,6 +1985,7 @@ c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+            print *,"ri22",ri
 c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx1-xk4
             dy=dy1-yk4
@@ -2148,6 +2158,7 @@ c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+            print *,"ri14",ri
 c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk4
             dy=dy2-yk4
@@ -2320,6 +2331,7 @@ c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+            print *,"ri24",ri
 c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk1
             dy=dy4-yk1
@@ -2492,6 +2504,7 @@ c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+            print *,"ri41",ri
 c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk2
             dy=dy4-yk2
@@ -2664,6 +2677,7 @@ c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+            print *,"ri42",ri
 c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk4
             dy=dy4-yk4
@@ -2836,6 +2850,7 @@ c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+4.0d0*ri
+            print *,"ri44",ri
 c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx3-xk3
             dy=dy3-yk3
@@ -3010,6 +3025,7 @@ c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+de
+            print *,"de33",de
 c     ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             ntj1=3*j-2
             nrj1=n3+ntj1
@@ -3026,12 +3042,15 @@ c     ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
                fdx=vdx*sf+sdx*u
                fdy=vdy*sf+sdy*u
                fdz=vdz*sf+sdz*u
+               ! trans-trans
                sdxx=sdxx*sf+2.0d0*vdx*sdx+sxx*u
                sdyy=sdyy*sf+2.0d0*vdy*sdy+syy*u
                sdzz=sdzz*sf+2.0d0*vdz*sdz+szz*u
                sdxy=sdxy*sf+vdx*sdy+vdy*sdx+sxy*u
                sdyz=sdyz*sf+vdy*sdz+vdz*sdy+syz*u
                sdzx=sdzx*sf+vdz*sdx+vdx*sdz+szx*u
+               print *, "sxx",sxx,syy,szz
+               ! rot-trans
                sdxai=sdx*fdai+sdxai*sf
                sdxbi=sdx*fdbi+sdxbi*sf
                sdxci=sdx*fdci+sdxci*sf
