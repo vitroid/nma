@@ -9,7 +9,7 @@ C       FIRST AND SECOND DERIVATIVES ARE EXPRESSED IN ANALYTICAL FORM
 C       EWALD SUM IS NOT TAKEN INTO ACCOUNT
 C ----------------------------------------------------------------------
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER (LPq=1600,NPq=1600)
+      PARAMETER (LPq=3000,NPq=3000)
       PARAMETER (NNPq=NPq*(NPq-1)/2,Mq=6,NDq=Mq*NPq,NRq=3)
       PARAMETER (NRRq=NRq*(NRq+1)/2,NR2q=2*NRq,ND2q=NDq*2)
       PARAMETER (NDPq=NDq*(NDq+1)/2)
@@ -45,7 +45,7 @@ C ----------------------------------------------------------------------
       COMMON /BR/ AAZ1(NPq),AAZ2(NPq),AAZ3(NPq),AAZ4(NPq),
      *          ACZ1(NPq),ACZ2(NPq),ACZ3(NPq),ACZ4(NPq),
      *          CCZ1(NPq),CCZ2(NPq),CCZ3(NPq),CCZ4(NPq)
-      COMMON /CR/ FDI(NDq),SD(NDq,NDq)
+      COMMON /CR/ FDI(NDq) !,SD(NDq,NDq)
       COMMON /DR/ RC,BXL,BYL,BZL,rc2,RL,RQ,RQ3,RQ6,EP,
      *            EMUPID,P1,P2,P3,P4,P5,P6
       COMMON /IN/ LC(NPq),N,NN,N3,N6,ntr
@@ -54,10 +54,13 @@ C ----------------------------------------------------------------------
       DATA QE/332.17752D0/
       DATA UJ/4.184D3/,HCP/6.62618D-34/,CV/2.9979246D10/
       DATA SG,WM/1.0D-8,18.0D0/,csinth/0.7d0/
+      real*8 val(NDq)
+      real*8, allocatable:: vec(:,:), sd(:,:)
+      integer mode
       EPS=2.0D-16
       in=15
       io=19
-      read(5,*) in,io
+      read(5,*) in,io,mode
       QQ=0.5564d0
       AD1=7.313907049d+5
       AD2=7.360955117d+2
@@ -86,6 +89,8 @@ C ----------------------------------------------------------------------
       NN=N-1
       N3=N*3
       N6=N3+N3
+      allocate(vec(N6,N6))
+      allocate(sd(N6,N6))
       RIX=(16.0D0*OL*OL+2.0D0*(HYL*HYL+HZL*HZL))/WM
       RIY=(16.0D0*OL*OL+2.0D0*HZL*HZL)/WM
       RIZ=2.0D0*HYL*HYL/WM
@@ -205,11 +210,11 @@ c1122  FORMAT(65I2)
       EKM(2,3,I)=EV(2,3)
       EKM(3,3,I)=EV(3,3)
   148 CONTINUE
-      DO 58 I=1,NDq
-      DO 58 J=1,NDq
+      DO 58 I=1,N6
+      DO 58 J=1,N6
       SD(J,I)=0.0D0
 58    CONTINUE
-      CALL DRVTV
+      CALL DRVTV(sd)
       EP=EP/FLOAT(N)
       WRITE(6,*) ' ENERGY = ',EP
       DO 777 I=1,N
@@ -386,9 +391,9 @@ c      aa=aa+ea(i)**2+eb(i)*2+ec(i)**2
        end do
       stop
       END
-      SUBROUTINE NMAU(RIX,RIY,RIZ)
+      SUBROUTINE NMAU(RIX,RIY,RIZ,sd)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER (LPq=1600,NPq=1600)
+      PARAMETER (LPq=3000,NPq=3000)
       PARAMETER (NNPq=NPq*(NPq-1)/2,Mq=6,NDq=Mq*NPq,NRq=3)
       PARAMETER (NRRq=NRq*(NRq+1)/2,NR2q=2*NRq,ND2q=NDq*2)
       PARAMETER (NDPq=NDq*(NDq+1)/2)
@@ -424,7 +429,7 @@ c      aa=aa+ea(i)**2+eb(i)*2+ec(i)**2
       COMMON /BR/ AAZ1(NPq),AAZ2(NPq),AAZ3(NPq),AAZ4(NPq),
      *          ACZ1(NPq),ACZ2(NPq),ACZ3(NPq),ACZ4(NPq),
      *          CCZ1(NPq),CCZ2(NPq),CCZ3(NPq),CCZ4(NPq)
-      COMMON /CR/ FDI(NDq),SD(NDq,NDq)
+      COMMON /CR/ FDI(NDq) !,SD(NDq,NDq)
       COMMON /DR/ RC,BXL,BYL,BZL,rc2,RL,RQ,RQ3,RQ6,EP,
      *            EMUPID,P1,P2,P3,P4,P5,P6
       COMMON /IN/ LC(NPq),N,NN,N3,N6,ntr
@@ -434,7 +439,8 @@ c     *            EKM(NRQ,NRQ,NDHQ),EV(NDHQ),
 c     *            VW(NDQ,2),
 c     *            Q(NDQ),
 c     *            S(NRQ,NRQ),
-     *            V(NDQ)
+     *     V(NDQ)
+      real*8, intent(inout) ::  sd(N6,N6)
       eps=2.0D-16
       DO 10 I=1,N
       TH=EA(I)
@@ -587,7 +593,7 @@ c     *            S(NRQ,NRQ),
       END
       SUBROUTINE LC1(SINA,SINB,SINC,COSA,COSB,COSC,HYL,HZL,OL,CL,I)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER (LPq=1600,NPq=1600)
+      PARAMETER (LPq=3000,NPq=3000)
       PARAMETER (NNPq=NPq*(NPq-1)/2,Mq=6,NDq=Mq*NPq,NRq=3)
       PARAMETER (NRRq=NRq*(NRq+1)/2,NR2q=2*NRq,ND2q=NDq*2)
       PARAMETER (NDPq=NDq*(NDq+1)/2)
@@ -626,7 +632,7 @@ C    *          ABZ1(NPq),ABZ2(NPq),ABZ3(NPq),ABZ4(NPq),
 C    *          BBZ1(NPq),BBZ2(NPq),BBZ3(NPq),BBZ4(NPq),
 C    *          BCZ1(NPq),BCZ2(NPq),BCZ3(NPq),BCZ4(NPq),
      *          CCZ1(NPq),CCZ2(NPq),CCZ3(NPq),CCZ4(NPq)
-      COMMON /CR/ FDI(NDq),SD(NDq,NDq)
+      COMMON /CR/ FDI(NDq) !,SD(NDq,NDq)
       COMMON /DR/ RC,BXL,BYL,BZL,rc2,RL,RQ,RQ3,RQ6,EP,
      *            EMUPID,P1,P2,P3,P4,P5,P6
       COMMON /IN/ LC(NPq),N,NN,N3,N6,ntr
@@ -845,7 +851,7 @@ C    *          BCZ1(NPq),BCZ2(NPq),BCZ3(NPq),BCZ4(NPq),
       SUBROUTINE LC2(SINAP,SINBP,SINCP,COSAP,COSBP,COSCP,
      *               HYL,HZL,OL,CL,I)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER (LPq=1600,NPq=1600)
+      PARAMETER (LPq=3000,NPq=3000)
       PARAMETER (NNPq=NPq*(NPq-1)/2,Mq=6,NDq=Mq*NPq,NRq=3)
       PARAMETER (NRRq=NRq*(NRq+1)/2,NR2q=2*NRq,ND2q=NDq*2)
       PARAMETER (NDPq=NDq*(NDq+1)/2)
@@ -884,7 +890,7 @@ C    *          ABZ1(NPq),ABZ2(NPq),ABZ3(NPq),ABZ4(NPq),
 C    *          BBZ1(NPq),BBZ2(NPq),BBZ3(NPq),BBZ4(NPq),
 C    *          BCZ1(NPq),BCZ2(NPq),BCZ3(NPq),BCZ4(NPq),
      *          CCZ1(NPq),CCZ2(NPq),CCZ3(NPq),CCZ4(NPq)
-      COMMON /CR/ FDI(NDq),SD(NDq,NDq)
+      COMMON /CR/ FDI(NDq) !,SD(NDq,NDq)
       COMMON /DR/ RC,BXL,BYL,BZL,rc2,RL,RQ,RQ3,RQ6,EP,
      *            EMUPID,P1,P2,P3,P4,P5,P6
       COMMON /IN/ LC(NPq),N,NN,N3,N6,ntr
@@ -1144,9 +1150,9 @@ C    *          BCZ1(NPq),BCZ2(NPq),BCZ3(NPq),BCZ4(NPq),
       BCY4(I)=BC23C
       RETURN
       END
-      SUBROUTINE DRVTV
+      SUBROUTINE DRVTV(sd)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER (LPq=1600,NPq=1600)
+      PARAMETER (LPq=3000,NPq=3000)
       PARAMETER (NNPq=NPq*(NPq-1)/2,Mq=6,NDq=Mq*NPq,NRq=3)
       PARAMETER (NRRq=NRq*(NRq+1)/2,NR2q=2*NRq,ND2q=NDq*2)
       PARAMETER (NDPq=NDq*(NDq+1)/2)
@@ -1185,10 +1191,11 @@ C    *          ABZ1(NPq),ABZ2(NPq),ABZ3(NPq),ABZ4(NPq),
 C    *          BBZ1(NPq),BBZ2(NPq),BBZ3(NPq),BBZ4(NPq),
 C    *          BCZ1(NPq),BCZ2(NPq),BCZ3(NPq),BCZ4(NPq),
      *          CCZ1(NPq),CCZ2(NPq),CCZ3(NPq),CCZ4(NPq)
-      COMMON /CR/ FDI(NDq),SD(NDq,NDq)
+      COMMON /CR/ FDI(NDq) !,SD(NDq,NDq)
       COMMON /DR/ RC,BXL,BYL,BZL,rc2,RL,RQ,RQ3,RQ6,EP,
      *            EMUPID,P1,P2,P3,P4,P5,P6
       COMMON /IN/ LC(NPq),N,NN,N3,N6,ntr
+      real*8, intent(inout):: sd(N6,N6)
       EP=0.0D0
       DO 60 I=1,NN
       XX=X(I)
@@ -3566,3 +3573,56 @@ C ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
    90 IND=30000
       RETURN
       END
+
+
+      subroutine eigen_val(H, KA, N, e)
+      implicit none
+      real*8 H(KA,N)
+      real(8),intent(out)::e(KA)
+      
+      real(8),allocatable::V(:,:),work(:)
+      integer::N,KA,lwork,info
+      
+      lwork = 3*n-1
+      write(*,*) n
+      allocate(V(1:n,1:n))
+      allocate(work(lwork))
+      V = H
+      call dsyev('N', 'U', N, V, KA, e, work, lwork, info)
+      if (info .ne. 0) then
+         write(*,*) "error! in eigen. info = ",info
+      end if
+      deallocate(V,work)
+      e(1:N) = e(N:1:-1)
+      
+      return
+      end
+
+
+      subroutine eigen_vec(H, KA, N, e, V)
+      implicit none
+      real(8),intent(in)::H(KA,N)
+      real(8),intent(out)::e(KA)
+      real(8),intent(out)::V(KA,KA)
+      
+      real(8),allocatable::work(:)
+      integer::N,KA,lwork,info
+      
+      lwork = 3*n-1
+      allocate(work(lwork))
+      V = H
+      call dsyev('V', 'U', N, V, KA, e, work, lwork, info)
+      if (info .ne. 0) then
+         write(*,*) "error! in eigen. info = ",info
+      end if
+      write(6,*) "4"
+      deallocate(work)
+      write(6,*) "5"
+      e(1:N) = e(N:1:-1)
+      write(6,*) "6"
+      !V(1:N,1:N)=V(1:N, N:1:-1)
+      !write(6,*) "7"
+      
+      return
+      end
+      
