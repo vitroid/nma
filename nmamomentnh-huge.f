@@ -310,8 +310,17 @@ c1122  FORMAT(65I2)
 889   CONTINUE
 888   CONTINUE
 
-      ICON=1
-      CALL HOQRVW(SD,NDq,N6,FDI,EPS,VW,ICON)
+      if (mode .eq. 1) then
+         write(6,*) "dsyev"
+         call eigen_vec(SD, N6, N6, val, vec)
+         SD(1:N6, 1:N6) = vec(1:N6, N6:1:-1)
+         FDI(1:N6) = val(1:N6)
+         ICON=0
+      else
+         write(6,*) "HOQRVW"
+         ICON=1
+         CALL HOQRVW(SD,N6,N6,FDI,EPS,VW,ICON)
+      endif
       IF(ICON.NE.0) THEN
       WRITE(6,*) 'ERROR  IN NORMAL MODE ANALYSIS ERROR CODE = ',ICON
       ELSE
