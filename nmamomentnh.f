@@ -78,7 +78,8 @@ C ----------------------------------------------------------------------
       HZL=16.0D0*OHZ/18.0D0
       OL=-OHZ+HZL
       CL=COLEN+OL
-      read(in) N,DT,TEMPO,bxl,byl,bzl,rc,nf
+      !modified
+      read(in,*) N,DT,TEMPO,bxl,byl,bzl,rc,nf
       WMM=WM/ANUM
       ENU=QS/ANUM*UJ*1.0D+7
       ETEMP=ENU/BK
@@ -114,7 +115,8 @@ c      BXL=VOL**(1.0d0/3.0d0)
      *          5X,'NUMBER OF MOLECULES = ',I5,'number of '
      *          'configurations',1x,i5)
       do mmm=1,nf
-      read(in) (X(i),Y(i),Z(i),EA(i),EB(i),EC(i),i=1,n)
+!     modified        
+      read(in,*) (X(i),Y(i),Z(i),EA(i),EB(i),EC(i),i=1,n)
       
       DO 48 I=1,N
       TH=EA(I)
