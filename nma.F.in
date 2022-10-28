@@ -1,4 +1,6 @@
-! -*- coding: utf-8 -*-
+!     -*- coding: utf-8 -*-
+#define DEBUG 1
+#undef DEBUG
 !     これからこのコードに、可能な限りコメントをつけて構造を理解します。
 !     2019-09-10 MM
       program nma
@@ -115,7 +117,9 @@ c     add end
 !     ad1, ad2は水のLJ相互作用の定数。エネルギー計算をクーロン相互作用の単位で統一する。
       p1=ad1/qs
       p2=-ad2/qs
+#ifdef DEBUG
       print *,"p1 p2",p1,p2
+#endif
 !     微分ででてくる定数。
       p3=-p1*12.0d0
       p4=-p2*6.0d0
@@ -164,8 +168,10 @@ c     add end
       rix=(wo*ol*ol+2d0*wh*(hyl*hyl+hzl*hzl))/wm
       riy=(wo*ol*ol+2d0*wh*hzl*hzl)/wm
       riz=2d0*wh*hyl*hyl/wm
+#ifdef DEBUG
       print *, "inertia"
       print *, rix,riy,riz
+#endif
 !     分子数(実数)
       pn=float(n)
 !     数子分(分子数の逆数)
@@ -215,7 +221,7 @@ c     add end
          cosap=sina*sinc
 !     Euler角の角度の選び方を切り替える。
 !     (注)Euler角には特異点があり、その近傍では微分できないので、角度が特異点に近い場合には特異点のほうをずらす。
-         csinth = 0.0
+         csinth = 0.7
          if(abs(sina).gt.csinth)  then
             lc(i)=1
             call lc1(sina,sinb,sinc,cosa,cosb,cosc,hyl,hzl,ol,cl,i)
@@ -240,10 +246,12 @@ c     add end
             ea(i)=ap
             eb(i)=bp
             ec(i)=cp
-            call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
+           call lc2(sinap,sinbp,sincp,cosap,cosbp,coscp,hyl,hzl,ol,cl,i)
          end if
  48   continue
+#ifdef DEBUG
       print *, "LC"
+#endif
       write(STDOUT,1122)(lc(i),i=1,n)
  1122 format(65i2)
 !     ***1
@@ -279,20 +287,24 @@ c     add end
             ev(3,1)=ev(1,3)
             ev(3,2)=ev(2,3)
          end if
+#ifdef DEBUG
          print *,"ev"
          print *,ev
+#endif
          icon=1
 !     ハウスホルダー法による固有値解析
 !     (注)空間座標系での慣性主軸の算出?
 !     (注)分子内座標での主軸がわかっているなら、それを回転するだけではだめなのか？
 !     (注)実際、固有値3つはrix,riy,rizにとても近い(が分子ごとに違う)
          call hoqrvw(ev,nr$,nthree,e,eps,vw,icon)
+#ifdef DEBUG
          print *,"eigenvalues"
          print *,e
          print *,"eigenvectors"
          print *,ev(1,1), ev(1,2), ev(1,3)
          print *,ev(2,1), ev(2,2), ev(2,3)
          print *,ev(3,1), ev(3,2), ev(3,3)
+#endif
          j1=3*i-2
          j2=j1+1
          j3=j2+1
@@ -356,10 +368,12 @@ c     add end
             t(1,3)=sd(l1,k3)
             t(2,3)=sd(l2,k3)
             t(3,3)=sd(l3,k3)
+#ifdef DEBUG
             print *,"***4",i,j
             print *,t(1,1),t(1,2),t(1,3)
             print *,t(2,1),t(2,2),t(2,3)
             print *,t(3,1),t(3,2),t(3,3)
+#endif
 !     行列tと行列ekm(i)の積をsに入れる
             do k=1,nr$
                do l=1,nr$
@@ -380,9 +394,11 @@ c     add end
                   t(l,k)=ss
                enddo
             enddo
+#ifdef DEBUG
             print *,"T@",i,j
             print *,t
             print *,t(1,2)
+#endif
 !     sdにフィードバック(何それ)
             sd(l1,k1)=t(1,1)*ekv(j1)*ekv(i1)
             sd(l2,k1)=t(2,1)*ekv(j2)*ekv(i1)
@@ -393,10 +409,12 @@ c     add end
             sd(l1,k3)=t(1,3)*ekv(j1)*ekv(i3)
             sd(l2,k3)=t(2,3)*ekv(j2)*ekv(i3)
             sd(l3,k3)=t(3,3)*ekv(j3)*ekv(i3)
+#ifdef DEBUG
             print *,"***5"
             print *, sd(l1,k1),sd(l1,k2),sd(l1,k3)
             print *, sd(l2,k1),sd(l2,k2),sd(l2,k3)
             print *, sd(l3,k1),sd(l3,k2),sd(l3,k3)
+#endif
          enddo
       enddo
       do i=1,n
@@ -419,10 +437,12 @@ c     add end
             t(1,3)=sd(k1,i3)
             t(2,3)=sd(k2,i3)
             t(3,3)=sd(k3,i3)
+#ifdef DEBUG
             print *,"***7",i,j
             print *,t(1,1),t(1,2),t(1,3)
             print *,t(2,1),t(2,2),t(2,3)
             print *,t(3,1),t(3,2),t(3,3)
+#endif
 !     行列ekmとtの積をsに入れる
             do k=1,nr$
                do l=1,nr$
@@ -442,10 +462,12 @@ c     add end
             sd(k1,i3)=s(1,3)*ekv(j1)
             sd(k2,i3)=s(2,3)*ekv(j2)
             sd(k3,i3)=s(3,3)*ekv(j3)
+#ifdef DEBUG
             print *,"***8"
             print *, sd(k1,i1),sd(k1,i2),sd(k1,i3)
             print *, sd(k2,i1),sd(k2,i2),sd(k2,i3)
             print *, sd(k3,i1),sd(k3,i2),sd(k3,i3)
+#endif
          enddo
       enddo
 !     対称化
@@ -781,13 +803,17 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       bcy4(i)=0.0d0
 !     以下、上と同じ内容をgenRで生成した関数で再現できるかどうかのチェック
       call RotMat(ea(i),eb(i),ec(i),rot)
+#ifdef DEBUG            
       print *, "***2"
       print *, i,rot(1,2)
       print *, sp12
+#endif
       call Rot_a(ea(i),eb(i),ec(i),rot)
+#ifdef DEBUG            
       print *, "***3"
       print *, i,rot(1,2)
       print *, dda12
+#endif
       intra(1,1) = 0
       intra(2,1) = hyl
       intra(3,1) = hzl
@@ -801,14 +827,18 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
       intra(2,4) = 0
       intra(3,4) = cl
       rotated = matmul(rot, intra)
+#ifdef DEBUG            
       print *, "intra"
       print *, intra
       print *, rotated(1,1), rotated(2,1), rotated(3,1)
       print *, ax1(i), ay1(i), az1(i)
+#endif
       call Rot_bc(ea(i),eb(i),ec(i),rot)
       rotated = matmul(rot, intra)
+#ifdef DEBUG            
       print *, rotated(1,1), rotated(2,1), rotated(3,1)
       print *, bcx1(i), bcy1(i)
+#endif
 !     すべて問題なし。
       return
       end
@@ -1209,7 +1239,9 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             sz=dz*dz
 !     重心間距離の二乗
             r2=sx+sy+sz
+#ifdef DEBUG            
             print *,"R",i,j,R2**0.5
+#endif
 !     遠すぎる対は無視
             if(r2.gt.rc2) cycle
 !     原子の分子内相対座標
@@ -1241,10 +1273,10 @@ c    *          bcz1(np$),bcz2(np$),bcz3(np$),bcz4(np$),
             rr=sqrt(r2)
 !     cutoff関数が有効な範囲か
             if(rr.gt.rl) then
-               if ( i .eq. 1) then
-                  print *, "BORDER", j,rr
+!               if ( i .eq. 1) then
+!                  print *, "BORDER", j,rr
 !                  stop
-               endif
+!               endif
                rsi=1.0d0/r2
                ri=1.0d0/rr
                rrl=rr-rc
@@ -1275,8 +1307,10 @@ c     ::::::: first and second derivatives for each site
             dx=dx1-xk1
             dy=dy1-yk1
             dz=dz1-zk1
+#ifdef DEBUG            
             print *, "H1-H1"
             print *, dx,dy,dz
+#endif
             sx=dx*dx
             sy=dy*dy
             sz=dz*dz
@@ -1419,8 +1453,10 @@ c     ::::::: first and second derivatives for each site
             fdbj=ddbj
             fdcj=ddcj
             sdxx=dxx
+#ifdef DEBUG            
             print *,"dxx 1 1"
             print *,dxx
+#endif
             sdyy=dyy
             sdzz=dzz
             sdxy=dxy
@@ -1466,7 +1502,9 @@ c     ::::::: first and second derivatives for each site
             sdcbk=dcbk
             sdcck=dcck
             epi=ri
+#ifdef DEBUG            
             print *,"ri11",ri
+#endif
 c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx1-xk2
             dy=dy1-yk2
@@ -1592,8 +1630,11 @@ c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 1 2"
             print *,dxx
+#endif
+            
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -1639,7 +1680,9 @@ c     ::::: @@@ 11 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+#ifdef DEBUG            
             print *,"ri12",ri
+#endif
 c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk1
             dy=dy2-yk1
@@ -1765,8 +1808,10 @@ c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 2 1"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -1812,7 +1857,9 @@ c     ::::: @@@ 12 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+#ifdef DEBUG            
             print *,"ri21",ri
+#endif
 c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk2
             dy=dy2-yk2
@@ -1938,8 +1985,10 @@ c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 2 2"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -1985,7 +2034,9 @@ c     ::::: @@@ 21 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+ri
+#ifdef DEBUG            
             print *,"ri22",ri
+#endif
 c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx1-xk4
             dy=dy1-yk4
@@ -2111,8 +2162,10 @@ c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 1 4"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2158,7 +2211,9 @@ c     ::::: @@@ 22 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+#ifdef DEBUG            
             print *,"ri14",ri
+#endif
 c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx2-xk4
             dy=dy2-yk4
@@ -2284,8 +2339,10 @@ c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 2 4"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2331,7 +2388,9 @@ c     ::::: @@@ 14 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+#ifdef DEBUG            
             print *,"ri24",ri
+#endif
 c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk1
             dy=dy4-yk1
@@ -2457,8 +2516,10 @@ c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 4 1"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2504,7 +2565,9 @@ c     ::::: @@@ 24 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+#ifdef DEBUG            
             print *,"ri41",ri
+#endif
 c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk2
             dy=dy4-yk2
@@ -2630,8 +2693,10 @@ c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 4 2"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2677,7 +2742,9 @@ c     ::::: @@@ 41 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi-2.0d0*ri
+#ifdef DEBUG            
             print *,"ri42",ri
+#endif
 c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx4-xk4
             dy=dy4-yk4
@@ -2803,8 +2870,10 @@ c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 4 4"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -2850,7 +2919,9 @@ c     ::::: @@@ 42 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+4.0d0*ri
+#ifdef DEBUG            
             print *,"ri44",ri
+#endif
 c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             dx=dx3-xk3
             dy=dy3-yk3
@@ -2978,8 +3049,10 @@ c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             fdbj=fdbj+ddbj
             fdcj=fdcj+ddcj
             sdxx=dxx+sdxx
+#ifdef DEBUG            
             print *,"dxx 3 3"
             print *,dxx
+#endif
             sdyy=dyy+sdyy
             sdzz=dzz+sdzz
             sdxy=dxy+sdxy
@@ -3025,7 +3098,9 @@ c     ::::: @@@ 44 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             sdcbk=dcbk+sdcbk
             sdcck=dcck+sdcck
             epi=epi+de
+#ifdef DEBUG            
             print *,"de33",de
+#endif
 c     ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
             ntj1=3*j-2
             nrj1=n3+ntj1
@@ -3049,7 +3124,9 @@ c     ::::: @@@ 33 ::::::::::::::::::::::::::::::::::::::::::::::::::::
                sdxy=sdxy*sf+vdx*sdy+vdy*sdx+sxy*u
                sdyz=sdyz*sf+vdy*sdz+vdz*sdy+syz*u
                sdzx=sdzx*sf+vdz*sdx+vdx*sdz+szx*u
+#ifdef DEBUG            
                print *, "sxx",sxx,syy,szz
+#endif
                ! rot-trans
                sdxai=sdx*fdai+sdxai*sf
                sdxbi=sdx*fdbi+sdxbi*sf

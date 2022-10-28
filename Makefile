@@ -8,7 +8,7 @@ SOURCE0 = nma0.F
 OBJS0 = ${SOURCE0:.F=.o}
 #
 #FFLAG    = -fpp -static -O3 
-FFLAG    =  -DSTDERR=0 -DSTDOUT=6 -fdollar-ok -ffixed-line-length-0 -m64 -O6 -fdollar-ok
+FFLAG    =  -DSTDERR=0 -DSTDOUT=6 -fdollar-ok -ffixed-line-length-0 -m64 -O6 -fdollar-ok -cpp
 LDFLAG   = $(FFLAG) #-Vaxlib -pthread
 CXXFLAGS=-O -static
 #
@@ -18,6 +18,9 @@ CXXFLAGS=-O -static
 	$(FC) $(FFLAG) -c $<
 %.o :%.f90
 	$(FC) $(FFLAG) -c $<
+
+nmamomentnh-huge: nmamomentnh-huge.f
+	ifort -fpp -static -g -mkl $^ -o $@
 
 nma4x%.F: nma.F.in
 	sed -e "s/%%NMOL%%/$*/g" -e "s/%%IPOT%%/4/g" -e "s/%%RCOA%%/8.5d0/g" $< > $@
